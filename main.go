@@ -10,10 +10,12 @@ func main() {
 	var file string
 	var mode string
 	var model string
+	var verbose bool
 	flag.IntVar(&loop, "l", 10, "number of iterations")
 	flag.StringVar(&file, "f", "", "data file")
 	flag.StringVar(&mode, "m", "", "mode {learn, test}")
 	flag.StringVar(&model, "w", "", "model file")
+	flag.BoolVar(&verbose, "v", false, "verbose mode")
 	flag.Parse()
 
 	if file == "" {
@@ -36,6 +38,9 @@ func main() {
 		n := 0.
 		for i, X_i := range X_test {
 			pred_y_i := p.Predict(X_i)
+			if verbose {
+				fmt.Println(pred_y_i)
+			}
 			if pred_y_i == y_test[i] {
 				num_corr += 1
 			}

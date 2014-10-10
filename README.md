@@ -7,7 +7,8 @@ Options:
 - f: data file
 - m: mode {learn, test}
 - w: model file
-- l: number of iterations
+- l: number of iterations (default: 10)
+- v: verbose mode
 
 Learning
 ==
