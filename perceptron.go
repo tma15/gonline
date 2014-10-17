@@ -5,11 +5,19 @@ import (
 	"math"
 )
 
+type Weight map[string]map[string]float64
+
 type Perceptron struct {
-	weight map[string]map[string]float64
-	loop   int
+	weight       Weight
+	eta          float64
+	labelDefault string
+	loop         int
 }
 
+func NewPerceptron(eta float64, loop int) Perceptron {
+	p := Perceptron{Weight{}, eta, "", loop}
+	return p
+}
 
 func Dot(v, w map[string]float64) float64 {
 	dot := 0.

@@ -10,8 +10,10 @@ func main() {
 	var file string
 	var mode string
 	var model string
+	var eta float64
 	var verbose bool
 	flag.IntVar(&loop, "l", 10, "number of iterations")
+	flag.Float64Var(&eta, "a", 0.5, "learning rate")
 	flag.StringVar(&file, "f", "", "data file")
 	flag.StringVar(&mode, "m", "", "mode {learn, test}")
 	flag.StringVar(&model, "w", "", "model file")
@@ -25,13 +27,15 @@ func main() {
 	if mode == "learn" {
 		flag.Parse()
 		X, y := LoadFromFile(file)
-		p := Perceptron{map[string]map[string]float64{}, loop}
+//                 p := Perceptron{Weight{}, eta, "", loop}
+		p := NewPerceptron(eta, loop)
 		p.Fit(X, y)
-		SaveModel(p.weight, model)
+		SaveModel(p, model)
 	} else if mode == "test" {
-		p := Perceptron{map[string]map[string]float64{}, loop}
-		weight := LoadModel(model)
-		p.weight = weight
+//                 p := Perceptron{Weight{}, eta, loop}
+//                 weight := LoadModel(model)
+//                 p.weight = weight
+                p := LoadModel(model)
 
 		X_test, y_test := LoadFromFile(file)
 		num_corr := 0.
