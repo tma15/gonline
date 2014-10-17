@@ -31,15 +31,15 @@ func main() {
 		p.Fit(X, y)
 		SaveModel(p, model)
 	} else if mode == "test" {
-                p := LoadModel(model)
+		p := LoadModel(model)
 
 		X_test, y_test := LoadFromFile(file)
 		num_corr := 0.
 		n := 0.
-                pred_y := []string{}
+		pred_y := []string{}
 		for i, X_i := range X_test {
 			pred_y_i := p.Predict(X_i)
-                        pred_y = append(pred_y, pred_y_i)
+			pred_y = append(pred_y, pred_y_i)
 			if verbose {
 				fmt.Println(pred_y_i)
 			}
@@ -49,7 +49,7 @@ func main() {
 			n += 1
 		}
 		acc := num_corr / n
-                confusionMatrix(y_test, pred_y)
+		confusionMatrix(y_test, pred_y)
 		fmt.Println("Acc:", acc)
 	} else {
 		panic("Invalid mode")
