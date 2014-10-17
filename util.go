@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
-	"io/ioutil"
+	"io"
+	//         "encoding/json"
+	"fmt"
+	//         "io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -17,7 +19,7 @@ func LoadFromStdin() ([]map[string]float64, []string) {
 		fv := strings.SplitN(scanner.Text(), " ", 2)
 		y_i := fv[0]
 		x := map[string]float64{}
-		//fmt.Println(fv[1])
+		//                 fmt.Println(fv[1])
 		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
 			//fmt.Println(k)
 			i := strings.Split(k, ":")
