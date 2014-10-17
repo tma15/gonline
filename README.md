@@ -26,3 +26,12 @@ Fit
 ```
 ./pa -f a1a.t -m test -w model
 ```
+
+Format
+==
+Label and features can be both strings and integers.
+Format is as follows:
+
+```
+<label> <feat1>:<val1> <feat2>:<val2> ...
+```
