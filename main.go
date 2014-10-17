@@ -27,21 +27,19 @@ func main() {
 	if mode == "learn" {
 		flag.Parse()
 		X, y := LoadFromFile(file)
-//                 p := Perceptron{Weight{}, eta, "", loop}
 		p := NewPerceptron(eta, loop)
 		p.Fit(X, y)
 		SaveModel(p, model)
 	} else if mode == "test" {
-//                 p := Perceptron{Weight{}, eta, loop}
-//                 weight := LoadModel(model)
-//                 p.weight = weight
                 p := LoadModel(model)
 
 		X_test, y_test := LoadFromFile(file)
 		num_corr := 0.
 		n := 0.
+                pred_y := []string{}
 		for i, X_i := range X_test {
 			pred_y_i := p.Predict(X_i)
+                        pred_y = append(pred_y, pred_y_i)
 			if verbose {
 				fmt.Println(pred_y_i)
 			}
@@ -51,6 +49,7 @@ func main() {
 			n += 1
 		}
 		acc := num_corr / n
+                confusionMatrix(y_test, pred_y)
 		fmt.Println("Acc:", acc)
 	} else {
 		panic("Invalid mode")
