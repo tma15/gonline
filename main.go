@@ -27,7 +27,7 @@ func main() {
 	if mode == "learn" {
 		flag.Parse()
 		X, y := LoadFromFile(file)
-		p := NewPassiveAgressive(C, loop)
+		p := NewPassiveAggressive(C, loop)
 		p.Fit(X, y)
 		SaveModel(p, model)
 	} else if mode == "test" {
