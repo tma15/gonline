@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -33,26 +34,37 @@ func LoadFromFile(fname string) ([]map[string]float64, []string) {
 		panic(err)
 	}
 
-	scanner := bufio.NewScanner(fp)
+	reader := bufio.NewReaderSize(fp, 4096*64)
 	X := []map[string]float64{}
 	y := []string{}
-	for scanner.Scan() {
-		//                 fmt.Println(scanner.Text())
-		fv := strings.SplitN(scanner.Text(), " ", 2)
+	i := 0
+	for {
+		line, _, err := reader.ReadLine()
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		fv := strings.SplitN(string(line), " ", 2)
 		y_i := fv[0]
 		x := map[string]float64{}
 		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
 			i := strings.Split(k, ":")
+			if len(i) != 2 {
+				continue
+			}
 			i64, _ := strconv.ParseFloat(i[1], 64)
 			x[i[0]] = i64
 		}
 		X = append(X, x)
 		y = append(y, y_i)
+//                 fmt.Println(y_i)
+		i += 1
 	}
 	return X, y
 
 }
-
 
 func confusionMatrix(y, pred_y []string) {
 	if len(y) != len(pred_y) {
