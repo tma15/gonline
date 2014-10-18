@@ -20,8 +20,7 @@ Usage of ./adagrad:
 ---
 Example
 ---
-
 ```
 ./adagrad -f news.train -m learn -w model -l 1 -c 0.01
-./adagrad -f news.test -m test -w model -l 1 -c 0.01
+./adagrad -f news.test -m test -w model
 ```
