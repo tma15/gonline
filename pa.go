@@ -12,15 +12,15 @@ import (
 
 type Weight map[string]map[string]float64
 
-type PassiveAgressive struct {
+type PassiveAggressive struct {
 	weight       Weight
 	C            float64
 	labelDefault string
 	loop         int
 }
 
-func NewPassiveAgressive(C float64, loop int) PassiveAgressive {
-	p := PassiveAgressive{Weight{}, C, "", loop}
+func NewPassiveAggressive(C float64, loop int) PassiveAggressive {
+	p := PassiveAggressive{Weight{}, C, "", loop}
 	return p
 }
 
@@ -43,7 +43,7 @@ func Norm(x map[string]float64) float64 {
 	return math.Sqrt(n)
 }
 
-func (p *PassiveAgressive) InitWeigt(y []string) Weight {
+func (p *PassiveAggressive) InitWeigt(y []string) Weight {
 	labelDist := map[string]int{}
 	for _, y_i := range y {
 		p.weight[y_i] = map[string]float64{}
@@ -70,7 +70,7 @@ func (p *PassiveAgressive) InitWeigt(y []string) Weight {
 	return p.weight
 }
 
-func (p *PassiveAgressive) Update(X map[string]float64, y string, sign float64) Weight {
+func (p *PassiveAggressive) Update(X map[string]float64, y string, sign float64) Weight {
 	loss := math.Max(0, 1-sign*Dot(X, p.weight[y]))
 //         tau := loss / Norm(X)
 	tau := loss / (Norm(X) + 1 / (2 * p.C))
@@ -88,7 +88,7 @@ func (p *PassiveAgressive) Update(X map[string]float64, y string, sign float64) 
 	return p.weight
 }
 
-func (p *PassiveAgressive) haveSameScores(scores []float64) bool {
+func (p *PassiveAggressive) haveSameScores(scores []float64) bool {
 	n_t := 0
 	var prev float64
 	for i, score := range scores {
@@ -108,7 +108,7 @@ func (p *PassiveAgressive) haveSameScores(scores []float64) bool {
 	}
 }
 
-func (p *PassiveAgressive) Predict(X map[string]float64) string {
+func (p *PassiveAggressive) Predict(X map[string]float64) string {
 	maxScore := math.Inf(-1)
 	pred_y_i := ""
 	scores := []float64{}
@@ -130,7 +130,7 @@ func (p *PassiveAgressive) Predict(X map[string]float64) string {
 	return pred_y_i
 }
 
-func (p *PassiveAgressive) Fit(X []map[string]float64, y []string) Weight {
+func (p *PassiveAggressive) Fit(X []map[string]float64, y []string) Weight {
 	p.weight = p.InitWeigt(y)
 	for loop := 0; loop < p.loop; loop++ {
 		fmt.Println(loop)
@@ -146,7 +146,7 @@ func (p *PassiveAgressive) Fit(X []map[string]float64, y []string) Weight {
 	return p.weight
 }
 
-func SaveModel(p PassiveAgressive, fname string) {
+func SaveModel(p PassiveAggressive, fname string) {
 	model_f, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		panic("Failed to dump model")
@@ -166,7 +166,7 @@ func SaveModel(p PassiveAgressive, fname string) {
 	writer.Flush()
 }
 
-func LoadModel(fname string) PassiveAgressive {
+func LoadModel(fname string) PassiveAggressive {
 	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
 	if err != nil {
 		panic("Failed to dump model")
@@ -216,6 +216,6 @@ func LoadModel(fname string) PassiveAgressive {
 		}
 
 	}
-	p := PassiveAgressive{weight, C, labelDefault, 0}
+	p := PassiveAggressive{weight, C, labelDefault, 0}
 	return p
 }
