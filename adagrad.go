@@ -1,16 +1,14 @@
-package main
+package gonline
 
 import (
 	"bufio"
 	"fmt"
-	"io"
+	//         "io"
 	"math"
 	"os"
-	"strconv"
-	"strings"
+	//         "strconv"
+	//         "strings"
 )
-
-type Weight map[string]map[string]float64
 
 type AdaGrad struct {
 	weight       Weight
@@ -26,17 +24,6 @@ func NewAdaGrad(lambda float64, loop int) AdaGrad {
 		map[string]map[string]float64{},
 		map[string]map[string]float64{}}
 	return p
-}
-
-func Dot(v, w map[string]float64) float64 {
-	dot := 0.
-	for key, value := range v {
-		_, ok := w[key]
-		if ok {
-			dot += value * w[key]
-		}
-	}
-	return dot
 }
 
 func (p *AdaGrad) InitWeigt(y []string) Weight {
@@ -134,7 +121,7 @@ func (p *AdaGrad) Predict(X map[string]float64) string {
 	for y_j, _ := range p.weight { // calculate scores for each label
 		dot := Dot(X, p.weight[y_j])
 		scores = append(scores, dot)
-//                 fmt.Println(y_j, dot)
+		//                 fmt.Println(y_j, dot)
 		if dot > maxScore {
 			maxScore = dot
 			pred_y_i = y_j
@@ -143,9 +130,9 @@ func (p *AdaGrad) Predict(X map[string]float64) string {
 	if p.haveSameScores(scores) {
 		pred_y_i = p.labelDefault
 	}
-//         fmt.Println(scores)
-//         fmt.Println("predy", pred_y_i, "Default", p.labelDefault)
-//         fmt.Println("")
+	//         fmt.Println(scores)
+	//         fmt.Println("predy", pred_y_i, "Default", p.labelDefault)
+	//         fmt.Println("")
 	return pred_y_i
 }
 
@@ -154,7 +141,7 @@ func (p *AdaGrad) Fit(X []map[string]float64, y []string) Weight {
 	var t int
 
 	for loop := 0; loop < p.loop; loop++ {
-		fmt.Println(loop)
+		//                 fmt.Println(loop)
 		for i, X_i := range X {
 			t += 1
 			y_j := p.Predict(X_i)
@@ -167,7 +154,7 @@ func (p *AdaGrad) Fit(X []map[string]float64, y []string) Weight {
 	return p.weight
 }
 
-func SaveModel(p AdaGrad, fname string) {
+func (p *AdaGrad) SaveModel(fname string) {
 	model_f, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		panic("Failed to dump model")
@@ -183,52 +170,4 @@ func SaveModel(p AdaGrad, fname string) {
 		}
 	}
 	writer.Flush()
-}
-
-func LoadModel(fname string) AdaGrad {
-	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
-	if err != nil {
-		panic("Failed to dump model")
-	}
-	weight := Weight{}
-	var labelDefault string
-	reader := bufio.NewReaderSize(model_f, 4096)
-	a := ""
-	for {
-		line, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			panic(err)
-		}
-		text := string(line)
-		if text == "WEIGHT" {
-			a = "w"
-			continue
-		}
-		if text == "DEFAULTLABEL" {
-			a = "d"
-			continue
-		}
-		if a == "w" {
-			elems := strings.Split(text, "\t")
-			label := elems[0]
-			id := elems[1]
-			w, _ := strconv.ParseFloat(elems[2], 64)
-			_, ok := weight[label]
-			if ok {
-				weight[label][id] = w
-			} else {
-				weight[label] = map[string]float64{}
-			}
-		}
-		if a == "d" {
-			labelDefault = text
-		}
-
-	}
-	p := AdaGrad{weight, 0, labelDefault, 0,
-		map[string]map[string]float64{},
-		map[string]map[string]float64{}}
-	return p
 }

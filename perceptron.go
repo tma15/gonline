@@ -1,13 +1,13 @@
-package main
+package gonline
 
 import (
 	"bufio"
 	"fmt"
-	"io"
+	//         "io"
 	"math"
 	"os"
-	"strconv"
-	"strings"
+	//         "strconv"
+	//         "strings"
 )
 
 type Weight map[string]map[string]float64
@@ -22,17 +22,6 @@ type Perceptron struct {
 func NewPerceptron(eta float64, loop int) Perceptron {
 	p := Perceptron{Weight{}, eta, "", loop}
 	return p
-}
-
-func Dot(v, w map[string]float64) float64 {
-	dot := 0.
-	for key, value := range v {
-		_, ok := w[key]
-		if ok {
-			dot += value * w[key]
-		}
-	}
-	return dot
 }
 
 func (p *Perceptron) InitWeigt(y []string) Weight {
@@ -123,7 +112,7 @@ func (p *Perceptron) Predict(X map[string]float64) string {
 func (p *Perceptron) Fit(X []map[string]float64, y []string) Weight {
 	p.weight = p.InitWeigt(y)
 	for loop := 0; loop < p.loop; loop++ {
-		fmt.Println(loop)
+		//                 fmt.Println(loop)
 		for i, X_i := range X {
 			//                         fmt.Println(i, X_i)
 			pred_y_i := p.Predict(X_i)
@@ -136,7 +125,7 @@ func (p *Perceptron) Fit(X []map[string]float64, y []string) Weight {
 	return p.weight
 }
 
-func SaveModel(p Perceptron, fname string) {
+func (p *Perceptron) SaveModel(fname string) {
 	model_f, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		panic("Failed to dump model")
@@ -145,8 +134,6 @@ func SaveModel(p Perceptron, fname string) {
 	writer := bufio.NewWriterSize(model_f, 4096*32)
 	writer.WriteString("DEFAULTLABEL\n")
 	writer.WriteString(fmt.Sprintf("%s\n", p.labelDefault))
-	writer.WriteString("ETA\n")
-	writer.WriteString(fmt.Sprintf("%f\n", p.eta))
 	writer.WriteString("WEIGHT\n")
 	for y, weight := range p.weight {
 		for ft, w := range weight {
@@ -154,58 +141,4 @@ func SaveModel(p Perceptron, fname string) {
 		}
 	}
 	writer.Flush()
-}
-
-func LoadModel(fname string) Perceptron {
-	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
-	if err != nil {
-		panic("Failed to dump model")
-	}
-	weight := Weight{}
-	var eta float64
-	var labelDefault string
-	reader := bufio.NewReaderSize(model_f, 4096)
-	a := ""
-	for {
-		line, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			panic(err)
-		}
-		text := string(line)
-		if text == "WEIGHT" {
-			a = "w"
-			continue
-		}
-		if text == "ETA" {
-			a = "e"
-			continue
-		}
-		if text == "DEFAULTLABEL" {
-			a = "d"
-			continue
-		}
-		if a == "w" {
-			elems := strings.Split(text, "\t")
-			label := elems[0]
-			id := elems[1]
-			w, _ := strconv.ParseFloat(elems[2], 64)
-			_, ok := weight[label]
-			if ok {
-				weight[label][id] = w
-			} else {
-				weight[label] = map[string]float64{}
-			}
-		}
-		if a == "e" {
-			eta, _ = strconv.ParseFloat(text, 64)
-		}
-		if a == "d" {
-			labelDefault = text
-		}
-
-	}
-	p := Perceptron{weight, eta, labelDefault, 0}
-	return p
 }

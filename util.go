@@ -1,4 +1,4 @@
-package main
+package gonline
 
 import (
 	"bufio"
@@ -65,7 +65,52 @@ func LoadFromFile(fname string) ([]map[string]float64, []string) {
 
 }
 
-func confusionMatrix(y, pred_y []string) {
+func LoadModel(fname string) (string, map[string]map[string]float64) {
+	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
+	if err != nil {
+		panic("Failed to load model")
+	}
+	weight := Weight{}
+	var labelDefault string
+	reader := bufio.NewReaderSize(model_f, 4096)
+	a := ""
+	for {
+		line, _, err := reader.ReadLine()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		text := string(line)
+		if text == "WEIGHT" {
+			a = "w"
+			continue
+		}
+		if text == "DEFAULTLABEL" {
+			a = "d"
+			continue
+		}
+		if a == "w" {
+			elems := strings.Split(text, "\t")
+			label := elems[0]
+			id := elems[1]
+			w, _ := strconv.ParseFloat(elems[2], 64)
+			_, ok := weight[label]
+			if ok {
+				weight[label][id] = w
+			} else {
+				weight[label] = map[string]float64{}
+			}
+		}
+		if a == "d" {
+			labelDefault = text
+		}
+
+	}
+	return labelDefault, weight
+}
+
+func ConfusionMatrix(y, pred_y []string) {
 	if len(y) != len(pred_y) {
 		panic("Numbers of labels must be the same")
 	}

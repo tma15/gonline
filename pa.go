@@ -1,16 +1,14 @@
-package main
+package gonline
 
 import (
 	"bufio"
 	"fmt"
-	"io"
+	//         "io"
 	"math"
 	"os"
-	"strconv"
-	"strings"
+	//         "strconv"
+	//         "strings"
 )
-
-type Weight map[string]map[string]float64
 
 type PassiveAggressive struct {
 	weight       Weight
@@ -22,17 +20,6 @@ type PassiveAggressive struct {
 func NewPassiveAggressive(C float64, loop int) PassiveAggressive {
 	p := PassiveAggressive{Weight{}, C, "", loop}
 	return p
-}
-
-func Dot(v, w map[string]float64) float64 {
-	dot := 0.
-	for key, value := range v {
-		_, ok := w[key]
-		if ok {
-			dot += value * w[key]
-		}
-	}
-	return dot
 }
 
 func Norm(x map[string]float64) float64 {
@@ -72,8 +59,8 @@ func (p *PassiveAggressive) InitWeigt(y []string) Weight {
 
 func (p *PassiveAggressive) Update(X map[string]float64, y string, sign float64) Weight {
 	loss := math.Max(0, 1-sign*Dot(X, p.weight[y]))
-//         tau := loss / Norm(X)
-	tau := loss / (Norm(X) + 1 / (2 * p.C))
+	//         tau := loss / Norm(X)
+	tau := loss / (Norm(X) + 1/(2*p.C))
 	if _, ok := p.weight[y]; ok == false {
 		p.weight[y] = map[string]float64{}
 	}
@@ -121,19 +108,19 @@ func (p *PassiveAggressive) Predict(X map[string]float64) string {
 			pred_y_i = y_j
 		}
 	}
-        if p.haveSameScores(scores) {
-                pred_y_i = p.labelDefault
-        }
-//                 fmt.Println(scores)
-//                 fmt.Println("pred y", pred_y_i, "Default", p.labelDefault)
-//                 fmt.Println("")
+	if p.haveSameScores(scores) {
+		pred_y_i = p.labelDefault
+	}
+	//                 fmt.Println(scores)
+	//                 fmt.Println("pred y", pred_y_i, "Default", p.labelDefault)
+	//                 fmt.Println("")
 	return pred_y_i
 }
 
 func (p *PassiveAggressive) Fit(X []map[string]float64, y []string) Weight {
 	p.weight = p.InitWeigt(y)
 	for loop := 0; loop < p.loop; loop++ {
-		fmt.Println(loop)
+		//                 fmt.Println(loop)
 		for i, X_i := range X {
 			//                         fmt.Println(i, X_i)
 			pred_y_i := p.Predict(X_i)
@@ -146,7 +133,7 @@ func (p *PassiveAggressive) Fit(X []map[string]float64, y []string) Weight {
 	return p.weight
 }
 
-func SaveModel(p PassiveAggressive, fname string) {
+func (p *PassiveAggressive) SaveModel(fname string) {
 	model_f, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		panic("Failed to dump model")
@@ -155,8 +142,8 @@ func SaveModel(p PassiveAggressive, fname string) {
 	writer := bufio.NewWriterSize(model_f, 4096*32)
 	writer.WriteString("DEFAULTLABEL\n")
 	writer.WriteString(fmt.Sprintf("%s\n", p.labelDefault))
-	writer.WriteString("C\n")
-	writer.WriteString(fmt.Sprintf("%f\n", p.C))
+	//         writer.WriteString("C\n")
+	//         writer.WriteString(fmt.Sprintf("%f\n", p.C))
 	writer.WriteString("WEIGHT\n")
 	for y, weight := range p.weight {
 		for ft, w := range weight {
@@ -164,58 +151,4 @@ func SaveModel(p PassiveAggressive, fname string) {
 		}
 	}
 	writer.Flush()
-}
-
-func LoadModel(fname string) PassiveAggressive {
-	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
-	if err != nil {
-		panic("Failed to dump model")
-	}
-	weight := Weight{}
-	var C float64
-	var labelDefault string
-	reader := bufio.NewReaderSize(model_f, 4096)
-	a := ""
-	for {
-		line, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			panic(err)
-		}
-		text := string(line)
-		if text == "WEIGHT" {
-			a = "w"
-			continue
-		}
-		if text == "C" {
-			a = "C"
-			continue
-		}
-		if text == "DEFAULTLABEL" {
-			a = "d"
-			continue
-		}
-		if a == "w" {
-			elems := strings.Split(text, "\t")
-			label := elems[0]
-			id := elems[1]
-			w, _ := strconv.ParseFloat(elems[2], 64)
-			_, ok := weight[label]
-			if ok {
-				weight[label][id] = w
-			} else {
-				weight[label] = map[string]float64{}
-			}
-		}
-		if a == "C" {
-			C, _ = strconv.ParseFloat(text, 64)
-		}
-		if a == "d" {
-			labelDefault = text
-		}
-
-	}
-	p := PassiveAggressive{weight, C, labelDefault, 0}
-	return p
 }
