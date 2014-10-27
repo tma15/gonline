@@ -9,58 +9,91 @@ import (
 	"strings"
 )
 
-type Classifier struct {
-	w            Weight
-	labelDefault string
+type Fv struct {
+	K int
+	V float64
 }
 
-func Dot(v, w map[string]float64) float64 {
-	dot := 0.
-	for key, value := range v {
-		_, ok := w[key]
+type FvStr struct {
+	K string
+	V float64
+}
+
+func fvstr2fv(v *Vocab, fvstr []FvStr, update bool) []Fv {
+	fv := make([]Fv, 0, len(fvstr))
+	for _, f := range fvstr {
+		k, ok := v.word2id[f.K]
 		if ok {
-			dot += value * w[key]
+			fv = append(fv, Fv{k, f.V})
+		} else if update {
+			k = v.addWord(f.K)
+			fv = append(fv, Fv{k, f.V})
 		}
+	}
+	return fv
+}
+
+type Vocab struct {
+	words   []string
+	word2id map[string]int
+}
+
+func NewVocab() *Vocab {
+	v := Vocab{[]string{}, map[string]int{}}
+	return &v
+}
+
+func (v *Vocab) addWord(word string) int {
+	newId := len(v.words)
+	v.words = append(v.words, word)
+	v.word2id[word] = newId
+	return newId
+}
+
+func (v *Vocab) getId(word string, update bool) int {
+	if id, ok := v.word2id[word]; ok {
+		return id
+	}
+
+	if update {
+		return v.addWord(word)
+	}
+	return -1
+}
+
+type Classifier struct {
+	weight   [][]float64
+	Labels   *Vocab
+	Features *Vocab
+}
+
+func Dot(w []float64, fv []Fv) float64 {
+	dot := 0.
+	for i := 0; i < len(fv); i++ {
+		k := fv[i].K      // feature id
+		if len(w) < k+1 { // Out of vocabulary
+			continue
+		}
+		dot += w[k] * fv[i].V
 	}
 	return dot
 }
 
-func (c *Classifier) haveSameScores(scores []float64) bool {
-	n_t := 0
-	var prev float64
-	for i, score := range scores {
-		if i == 0 {
-			prev = score
-		} else {
-			if score == prev { // current score is the same with previous score
-				n_t += 1
-			}
-			prev = score
-		}
-	}
-	if n_t == len(scores)-1 {
-		return true
-	} else {
-		return false
-	}
-}
-
-func (c *Classifier) Predict(X map[string]float64) (string, float64) {
+func (cls *Classifier) Predict(X []FvStr) (string, float64) {
+	x := fvstr2fv(cls.Features, X, false)
 	maxScore := math.Inf(-1)
-	pred_y_i := ""
-        scores := []float64{}
-	for y_j, _ := range c.w { // calculate scores for each label
-		dot := Dot(X, c.w[y_j])
+	var maxyId int
+	scores := []float64{}
+	for j, w := range cls.weight { // calculate scores for each label
+		dot := Dot(w, x)
+		//                 fmt.Println(dot)
 		scores = append(scores, dot)
 		if dot > maxScore {
 			maxScore = dot
-			pred_y_i = y_j
+			maxyId = j
 		}
 	}
-	if c.haveSameScores(scores) {
-		pred_y_i = c.labelDefault
-	}
-	return pred_y_i, maxScore
+	return cls.Labels.words[maxyId], maxScore
 }
 
 func LoadClassifier(fname string) Classifier {
@@ -68,10 +101,13 @@ func LoadClassifier(fname string) Classifier {
 	if err != nil {
 		panic("Failed to load model")
 	}
-	weight := Weight{}
-	var labelDefault string
+	var (
+		cls Classifier
+	)
+	cls.Labels = NewVocab()
+	cls.Features = NewVocab()
+	cls.weight = [][]float64{}
 	reader := bufio.NewReaderSize(model_f, 4096*32)
-	a := ""
 	for {
 		line, _, err := reader.ReadLine()
 		if err == io.EOF {
@@ -80,33 +116,21 @@ func LoadClassifier(fname string) Classifier {
 			panic(err)
 		}
 		text := string(line)
-		if text == "WEIGHT" {
-			a = "w"
-			continue
+		elems := strings.Split(text, "\t")
+		label := elems[0]
+		id := elems[1]
+		w, _ := strconv.ParseFloat(elems[2], 64)
+		labelid := cls.Labels.getId(label, true)
+		ftid := cls.Features.getId(id, true)
+
+		for len(cls.weight) < labelid+1 {
+			cls.weight = append(cls.weight, []float64{})
 		}
-		if text == "DEFAULTLABEL" {
-			a = "d"
-			continue
+		for len(cls.weight[labelid]) < ftid+1 {
+			cls.weight[labelid] = append(cls.weight[labelid], 0.)
 		}
-		if a == "w" {
-			elems := strings.Split(text, "\t")
-			label := elems[0]
-			id := elems[1]
-			w, _ := strconv.ParseFloat(elems[2], 64)
-			_, ok := weight[label]
-			if ok {
-				weight[label][id] = w
-			} else {
-				weight[label] = map[string]float64{}
-				weight[label][id] = w
-			}
-		}
-		if a == "d" {
-			labelDefault = text
-		}
+		cls.weight[labelid][ftid] = w
 
 	}
-	cls := Classifier{weight, labelDefault}
-//         os.Exit(1)
 	return cls
 }

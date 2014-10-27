@@ -3,155 +3,103 @@ package gonline
 import (
 	"bufio"
 	"fmt"
-	//         "io"
 	"math"
 	"os"
-	//         "strconv"
-	//         "strings"
 )
 
 type AdaGrad struct {
-	weight       Weight
-	lambda       float64
-	labelDefault string
-	loop         int
-	gradSum      map[string]map[string]float64
-	H            map[string]map[string]float64
+	weight   [][]float64
+	lambda   float64
+	loop     int
+	gradSum  [][]float64
+	H        [][]float64
+	Labels   *Vocab
+	Features *Vocab
 }
 
 func NewAdaGrad(lambda float64, loop int) AdaGrad {
-	p := AdaGrad{Weight{}, lambda, "", loop,
-		map[string]map[string]float64{},
-		map[string]map[string]float64{}}
+	labels := NewVocab()
+	features := NewVocab()
+	p := AdaGrad{[][]float64{}, lambda, loop,
+		[][]float64{},
+		[][]float64{},
+		labels,
+		features,
+	}
 	return p
 }
 
-func (p *AdaGrad) InitWeigt(y []string) Weight {
-	labelDist := map[string]int{}
-	for _, y_i := range y {
-		p.weight[y_i] = map[string]float64{}
-		if _, ok := labelDist[y_i]; ok {
-			labelDist[y_i] += 1
-		} else {
-			labelDist[y_i] = 1
-		}
+func (p *AdaGrad) Update(X []Fv, yId int, sign_y, t int) {
+	for len(p.weight) < yId+1 {
+		p.weight = append(p.weight, []float64{})
 	}
-
-	maxCnt := -1
-	l := ""
-	for k, cnt := range labelDist {
-		//                 fmt.Println(k, cnt)
-		if cnt > maxCnt {
-			//                     fmt.Println("Default:", k)
-			p.labelDefault = k
-			maxCnt = cnt
-		}
-		l = k
+	for len(p.gradSum) < yId+1 {
+		p.gradSum = append(p.gradSum, []float64{})
 	}
-	if p.labelDefault == "" {
-		p.labelDefault = l
-	}
-
-	return p.weight
-}
-
-func (p *AdaGrad) Update(X map[string]float64, y string, sign_y, t int) Weight {
-	if _, ok := p.gradSum[y]; ok == false {
-		p.gradSum[y] = map[string]float64{}
-	}
-	if _, ok := p.H[y]; ok == false {
-		p.H[y] = map[string]float64{}
+	for len(p.H) < yId+1 {
+		p.H = append(p.H, []float64{})
 	}
 
 	var sign_g float64
-	for f, _ := range X {
-		grad_i := float64(sign_y) * X[f]
-		if grad_i == 0 {
-			continue
+	for _, fv := range X {
+		grad_i := float64(sign_y) * fv.V
+		for len(p.weight[yId]) < fv.K+1 {
+			p.weight[yId] = append(p.weight[yId], 0.)
 		}
 
-		if _, ok := p.gradSum[y][f]; ok {
-			p.gradSum[y][f] += grad_i
-		} else {
-			p.gradSum[y][f] = grad_i
+		for len(p.gradSum[yId]) < fv.K+1 {
+			p.gradSum[yId] = append(p.gradSum[yId], 0.)
 		}
-		gradMean_f := p.gradSum[y][f] / float64(t)
+		p.gradSum[yId][fv.K] += -1. * grad_i
+		gradMean_f := p.gradSum[yId][fv.K] / float64(t)
+
+		for len(p.H[yId]) < fv.K+1 {
+			p.H[yId] = append(p.H[yId], 0.)
+		}
+		p.H[yId][fv.K] += grad_i * grad_i
 
 		if gradMean_f > 0 {
 			sign_g = 1.
 		} else {
 			sign_g = -1.
 		}
-
-		if _, ok := p.H[y][f]; ok {
-			p.H[y][f] += grad_i * grad_i
-		} else {
-			p.H[y][f] = grad_i * grad_i
-		}
-		w := -1.0 * sign_g * float64(t) * float64(math.Max(0, math.Abs(gradMean_f)-p.lambda)/math.Sqrt(p.H[y][f]))
-		p.weight[y][f] = w
-	}
-	return p.weight
-}
-
-func (p *AdaGrad) haveSameScores(scores []float64) bool {
-	n_t := 0
-	var prev float64
-	for i, score := range scores {
-		if i == 0 {
-			prev = score
-		} else {
-			if score == prev { // current score is the same with previous score
-				n_t += 1
-			}
-			prev = score
-		}
-	}
-	if n_t == len(scores)-1 {
-		return true
-	} else {
-		return false
+		w := -1.0 * sign_g * float64(t) * float64(math.Max(0, math.Abs(gradMean_f)-p.lambda)/math.Sqrt(p.H[yId][fv.K]))
+		p.weight[yId][fv.K] = w
 	}
 }
 
-func (p *AdaGrad) Predict(X map[string]float64) string {
+func (p *AdaGrad) Predict(X []Fv) int {
 	maxScore := math.Inf(-1)
-	pred_y_i := ""
+	var maxyId int
 	scores := []float64{}
-	for y_j, _ := range p.weight { // calculate scores for each label
-		dot := Dot(X, p.weight[y_j])
+	for j, w := range p.weight { // calculate scores for each label
+		dot := Dot(w, X)
 		scores = append(scores, dot)
-		//                 fmt.Println(y_j, dot)
 		if dot > maxScore {
 			maxScore = dot
-			pred_y_i = y_j
+			maxyId = j
 		}
 	}
-	if p.haveSameScores(scores) {
-		pred_y_i = p.labelDefault
-	}
-	//         fmt.Println(scores)
-	//         fmt.Println("predy", pred_y_i, "Default", p.labelDefault)
-	//         fmt.Println("")
-	return pred_y_i
+	return maxyId
 }
 
-func (p *AdaGrad) Fit(X []map[string]float64, y []string) Weight {
-	p.weight = p.InitWeigt(y)
-	var t int
-
+func (p *AdaGrad) Fit(X [][]FvStr, y []string) {
+	t := 0
 	for loop := 0; loop < p.loop; loop++ {
-		//                 fmt.Println(loop)
 		for i, X_i := range X {
 			t += 1
-			y_j := p.Predict(X_i)
-			if y_j != y[i] {
-				p.Update(X_i, y_j, 1, t)
-				p.Update(X_i, y[i], -1, t)
+			if _, ok := p.Labels.word2id[y[i]]; !ok {
+				p.Labels.addWord(y[i])
+			}
+			yId_true := p.Labels.word2id[y[i]]
+			x := fvstr2fv(p.Features, X_i, true)
+			yId_pred := p.Predict(x)
+			if yId_true != yId_pred {
+				p.Update(x, yId_true, 1., t)
+				p.Update(x, yId_pred, -1., t)
 			}
 		}
 	}
-	return p.weight
 }
 
 func (p *AdaGrad) SaveModel(fname string) {
@@ -161,11 +109,10 @@ func (p *AdaGrad) SaveModel(fname string) {
 	}
 
 	writer := bufio.NewWriterSize(model_f, 4096*32)
-	writer.WriteString("DEFAULTLABEL\n")
-	writer.WriteString(fmt.Sprintf("%s\n", p.labelDefault))
-	writer.WriteString("WEIGHT\n")
-	for y, weight := range p.weight {
-		for ft, w := range weight {
+	for yId, weight := range p.weight {
+		for ftId, w := range weight {
+			y := p.Labels.words[yId]
+			ft := p.Features.words[ftId]
 			writer.WriteString(fmt.Sprintf("%s\t%s\t%f\n", y, ft, w))
 		}
 	}

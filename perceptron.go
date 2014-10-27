@@ -3,126 +3,71 @@ package gonline
 import (
 	"bufio"
 	"fmt"
-	//         "io"
 	"math"
 	"os"
-	//         "strconv"
-	//         "strings"
 )
 
-type Weight map[string]map[string]float64
 
 type Perceptron struct {
-	weight       Weight
+	weight       [][]float64
 	eta          float64
 	labelDefault string
 	loop         int
+	labels       *Vocab
+	features     *Vocab
 }
 
 func NewPerceptron(eta float64, loop int) Perceptron {
-	p := Perceptron{Weight{}, eta, "", loop}
+	labels := NewVocab()
+	features := NewVocab()
+	p := Perceptron{[][]float64{}, eta, "", loop, labels, features}
 	return p
 }
 
-func (p *Perceptron) InitWeigt(y []string) Weight {
-	labelDist := map[string]int{}
-	for _, y_i := range y {
-		p.weight[y_i] = map[string]float64{}
-		if _, ok := labelDist[y_i]; ok {
-			labelDist[y_i] += 1
-		} else {
-			labelDist[y_i] = 1
+func (p *Perceptron) Update(X []Fv, yId int, sign float64) {
+	for len(p.weight) < yId+1 {
+		p.weight = append(p.weight, []float64{})
+	}
+	for i := 0; i < len(X); i++ {
+		k := X[i].K // feature id
+		for len(p.weight[yId]) < k+1 {
+			p.weight[yId] = append(p.weight[yId], 0.) // expand weight vector
 		}
-	}
-
-	maxCnt := -1
-	l := ""
-	for k, cnt := range labelDist {
-		//                 fmt.Println(k, cnt)
-		if cnt > maxCnt {
-			//                     fmt.Println("Default:", k)
-			p.labelDefault = k
-			maxCnt = cnt
-		}
-		l = k
-	}
-	if p.labelDefault == "" {
-		p.labelDefault = l
-	}
-
-	return p.weight
-}
-
-func (p *Perceptron) Update(X map[string]float64, y string, sign float64) Weight {
-	for f, _ := range X {
-		_, ok := p.weight[y][f]
-		if ok {
-			p.weight[y][f] += p.eta * sign
-		} else {
-			p.weight[y][f] = p.eta * sign
-		}
-	}
-	return p.weight
-}
-
-func (p *Perceptron) haveSameScores(scores []float64) bool {
-	n_t := 0
-	var prev float64
-	for i, score := range scores {
-		if i == 0 {
-			prev = score
-		} else {
-			if score == prev { // current score is the same with previous score
-				n_t += 1
-			}
-			prev = score
-		}
-	}
-	if n_t == len(scores)-1 {
-		return true
-	} else {
-		return false
+		p.weight[yId][k] += p.eta * sign
 	}
 }
 
-func (p *Perceptron) Predict(X map[string]float64) string {
+func (p *Perceptron) Predict(X []Fv) int {
 	maxScore := math.Inf(-1)
-	pred_y_i := ""
-	//         allSame := true
+	var maxyId int
 	scores := []float64{}
-	for y_j, _ := range p.weight { // calculate scores for each label
-		dot := Dot(X, p.weight[y_j])
+	for j, w := range p.weight { // calculate scores for each label
+		dot := Dot(w, X)
+		//                 fmt.Println(dot)
 		scores = append(scores, dot)
-		//                 fmt.Println(y_j, dot)
 		if dot > maxScore {
 			maxScore = dot
-			pred_y_i = y_j
+			maxyId = j
 		}
 	}
-	if p.haveSameScores(scores) {
-		//                 fmt.Println("aaa")
-		pred_y_i = p.labelDefault
-	}
-	//         fmt.Println(scores)
-	//         fmt.Println("pred y", pred_y_i, "Default", p.labelDefault)
-	//         fmt.Println("")
-	return pred_y_i
+	return maxyId
 }
 
-func (p *Perceptron) Fit(X []map[string]float64, y []string) Weight {
-	p.weight = p.InitWeigt(y)
+func (p *Perceptron) Fit(X [][]FvStr, y []string) {
 	for loop := 0; loop < p.loop; loop++ {
-		//                 fmt.Println(loop)
 		for i, X_i := range X {
-			//                         fmt.Println(i, X_i)
-			pred_y_i := p.Predict(X_i)
-			if y[i] != pred_y_i {
-				p.Update(X_i, y[i], 1.)
-				p.Update(X_i, pred_y_i, -1.)
+			if _, ok := p.labels.word2id[y[i]]; !ok {
+				p.labels.addWord(y[i])
+			}
+			yId_true := p.labels.word2id[y[i]]
+			x := fvstr2fv(p.features, X_i, true)
+			yId_pred := p.Predict(x)
+			if yId_true != yId_pred {
+				p.Update(x, yId_true, 1.)
+				p.Update(x, yId_pred, -1.)
 			}
 		}
 	}
-	return p.weight
 }
 
 func (p *Perceptron) SaveModel(fname string) {
@@ -132,11 +77,10 @@ func (p *Perceptron) SaveModel(fname string) {
 	}
 
 	writer := bufio.NewWriterSize(model_f, 4096*32)
-	writer.WriteString("DEFAULTLABEL\n")
-	writer.WriteString(fmt.Sprintf("%s\n", p.labelDefault))
-	writer.WriteString("WEIGHT\n")
-	for y, weight := range p.weight {
-		for ft, w := range weight {
+	for yId, weight := range p.weight {
+		for ftId, w := range weight {
+			y := p.labels.words[yId]
+			ft := p.features.words[ftId]
 			writer.WriteString(fmt.Sprintf("%s\t%s\t%f\n", y, ft, w))
 		}
 	}

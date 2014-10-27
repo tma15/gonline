@@ -39,8 +39,8 @@ func train(args []string) {
         }
         cls.SaveModel(model)
     case "pa2":
-        p = gonline.NewPassiveAggressive(c, loop)
-        cls, _ := p.(gonline.PassiveAggressive)
+        p = gonline.NewPassiveAggressiveII(c, loop)
+        cls, _ := p.(gonline.PassiveAggressiveII)
         for _, trainfile := range fs.Args() {
             X, y := gonline.LoadFromFile(trainfile)
             cls.Fit(X, y)
@@ -77,7 +77,6 @@ func test(args []string) {
         for i, x_i := range X {
             y_i_pred, _ := cls.Predict(x_i)
             predy[i] = y_i_pred
-//             fmt.Println(i, y_i_pred, score)
         }
         gonline.ConfusionMatrix(y, predy)
     }

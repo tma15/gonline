@@ -28,14 +28,17 @@ func LoadFromStdin() ([]map[string]float64, []string) {
 	return X, y
 }
 
-func LoadFromFile(fname string) ([]map[string]float64, []string) {
+func LoadFromFile(fname string) ([][]FvStr, []string) {
 	fp, err := os.Open(fname)
 	if err != nil {
 		panic(err)
 	}
+	var (
+		sp []string
+	)
 
 	reader := bufio.NewReaderSize(fp, 4096*64)
-	X := []map[string]float64{}
+	X := [][]FvStr{}
 	y := []string{}
 	i := 0
 	for {
@@ -48,67 +51,67 @@ func LoadFromFile(fname string) ([]map[string]float64, []string) {
 		}
 		fv := strings.SplitN(string(line), " ", 2)
 		y_i := fv[0]
-		x := map[string]float64{}
+		x_i := []FvStr{}
 		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
-			i := strings.Split(k, ":")
-			if len(i) != 2 {
+			sp = strings.Split(k, ":")
+			if len(sp) != 2 {
 				continue
 			}
-			i64, _ := strconv.ParseFloat(i[1], 64)
-			x[i[0]] = i64
+			kname := sp[0]
+			v, _ := strconv.ParseFloat(sp[1], 64)
+			x_i = append(x_i, FvStr{kname, v})
 		}
-		X = append(X, x)
+		X = append(X, x_i)
 		y = append(y, y_i)
 		i += 1
 	}
 	return X, y
-
 }
 
-func LoadModel(fname string) (string, map[string]map[string]float64) {
-	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
-	if err != nil {
-		panic("Failed to load model")
-	}
-	weight := Weight{}
-	var labelDefault string
-	reader := bufio.NewReaderSize(model_f, 4096)
-	a := ""
-	for {
-		line, _, err := reader.ReadLine()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			panic(err)
-		}
-		text := string(line)
-		if text == "WEIGHT" {
-			a = "w"
-			continue
-		}
-		if text == "DEFAULTLABEL" {
-			a = "d"
-			continue
-		}
-		if a == "w" {
-			elems := strings.Split(text, "\t")
-			label := elems[0]
-			id := elems[1]
-			w, _ := strconv.ParseFloat(elems[2], 64)
-			_, ok := weight[label]
-			if ok {
-				weight[label][id] = w
-			} else {
-				weight[label] = map[string]float64{}
-			}
-		}
-		if a == "d" {
-			labelDefault = text
-		}
+// func LoadModel(fname string) (string, map[string]map[string]float64) {
+//         model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
+//         if err != nil {
+//                 panic("Failed to load model")
+//         }
+//         weight := Weight{}
+//         var labelDefault string
+//         reader := bufio.NewReaderSize(model_f, 4096)
+//         a := ""
+//         for {
+//                 line, _, err := reader.ReadLine()
+//                 if err == io.EOF {
+//                         break
+//                 } else if err != nil {
+//                         panic(err)
+//                 }
+//                 text := string(line)
+//                 if text == "WEIGHT" {
+//                         a = "w"
+//                         continue
+//                 }
+//                 if text == "DEFAULTLABEL" {
+//                         a = "d"
+//                         continue
+//                 }
+//                 if a == "w" {
+//                         elems := strings.Split(text, "\t")
+//                         label := elems[0]
+//                         id := elems[1]
+//                         w, _ := strconv.ParseFloat(elems[2], 64)
+//                         _, ok := weight[label]
+//                         if ok {
+//                                 weight[label][id] = w
+//                         } else {
+//                                 weight[label] = map[string]float64{}
+//                         }
+//                 }
+//                 if a == "d" {
+//                         labelDefault = text
+//                 }
 
-	}
-	return labelDefault, weight
-}
+//         }
+//         return labelDefault, weight
+// }
 
 func ConfusionMatrix(y, pred_y []string) {
 	if len(y) != len(pred_y) {
