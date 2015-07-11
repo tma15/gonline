@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func LoadFromStdin() ([]map[string]float64, []string) {
@@ -28,90 +30,102 @@ func LoadFromStdin() ([]map[string]float64, []string) {
 	return X, y
 }
 
-func LoadFromFile(fname string) ([][]FvStr, []string) {
+func ShuffleData(x *[][]Feature, y *[]int) {
+	rand.Seed(time.Now().UnixNano())
+	numdata := len(*x)
+	idx := make([]int, numdata, numdata)
+	for i := 0; i < numdata; i++ {
+		idx[i] = i
+	}
+	for i := range idx {
+		j := rand.Intn(i + 1)
+		(*x)[i], (*x)[j] = (*x)[j], (*x)[i]
+		(*y)[i], (*y)[j] = (*y)[j], (*y)[i]
+	}
+}
+
+func LoadTrainData(fname string, ftdict *Dict, labeldict *Dict, x *[][]Feature, y *[]int) {
 	fp, err := os.Open(fname)
 	if err != nil {
 		panic(err)
 	}
-	var (
-		sp []string
-	)
-
 	reader := bufio.NewReaderSize(fp, 4096*64)
-	X := [][]FvStr{}
-	y := []string{}
-	i := 0
 	for {
 		line, _, err := reader.ReadLine()
-
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			panic(err)
 		}
 		fv := strings.SplitN(string(line), " ", 2)
-		y_i := fv[0]
-		x_i := []FvStr{}
+		label_i := fv[0]
+		if !(*labeldict).HasElem(label_i) {
+			(*labeldict).AddElem(label_i)
+		}
+		y_i := (*labeldict).Elem2id[label_i]
+
+		x_i := make([]Feature, 0, 100000)
 		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
-			sp = strings.Split(k, ":")
+			sp := strings.Split(k, ":")
 			if len(sp) != 2 {
 				continue
 			}
-			kname := sp[0]
-			v, _ := strconv.ParseFloat(sp[1], 64)
-			x_i = append(x_i, FvStr{kname, v})
+			name := sp[0]
+			v, err := strconv.ParseFloat(sp[1], 64)
+			if err != nil {
+				panic(err)
+			}
+			if !(*ftdict).HasElem(name) {
+				(*ftdict).AddElem(name)
+			}
+			id := (*ftdict).Elem2id[name]
+			x_i = append(x_i, NewFeature(id, v, name))
 		}
-		X = append(X, x_i)
-		y = append(y, y_i)
-		i += 1
+		*x = append(*x, x_i)
+		*y = append(*y, y_i)
 	}
-	return X, y
 }
 
-// func LoadModel(fname string) (string, map[string]map[string]float64) {
-//         model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
-//         if err != nil {
-//                 panic("Failed to load model")
-//         }
-//         weight := Weight{}
-//         var labelDefault string
-//         reader := bufio.NewReaderSize(model_f, 4096)
-//         a := ""
-//         for {
-//                 line, _, err := reader.ReadLine()
-//                 if err == io.EOF {
-//                         break
-//                 } else if err != nil {
-//                         panic(err)
-//                 }
-//                 text := string(line)
-//                 if text == "WEIGHT" {
-//                         a = "w"
-//                         continue
-//                 }
-//                 if text == "DEFAULTLABEL" {
-//                         a = "d"
-//                         continue
-//                 }
-//                 if a == "w" {
-//                         elems := strings.Split(text, "\t")
-//                         label := elems[0]
-//                         id := elems[1]
-//                         w, _ := strconv.ParseFloat(elems[2], 64)
-//                         _, ok := weight[label]
-//                         if ok {
-//                                 weight[label][id] = w
-//                         } else {
-//                                 weight[label] = map[string]float64{}
-//                         }
-//                 }
-//                 if a == "d" {
-//                         labelDefault = text
-//                 }
-
-//         }
-//         return labelDefault, weight
-// }
+func LoadTestData(fname string, ftdict *Dict, labeldict *Dict, x *[][]Feature, y *[]int) {
+	fp, err := os.Open(fname)
+	if err != nil {
+		panic(err)
+	}
+	reader := bufio.NewReaderSize(fp, 4096*64)
+	for {
+		line, _, err := reader.ReadLine()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		fv := strings.SplitN(string(line), " ", 2)
+		label_i := fv[0]
+		if !(*labeldict).HasElem(label_i) {
+			continue
+		}
+		y_i := (*labeldict).Elem2id[label_i]
+		x_i := make([]Feature, 0, 100000)
+		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
+			sp := strings.Split(k, ":")
+			if len(sp) != 2 {
+				continue
+			}
+			name := sp[0]
+			v, err := strconv.ParseFloat(sp[1], 64)
+			if err != nil {
+				panic(err)
+			}
+			if !(*ftdict).HasElem(name) {
+				continue
+			}
+			id := (*ftdict).Elem2id[name]
+			x_i = append(x_i, NewFeature(id, v, name))
+		}
+		*x = append(*x, x_i)
+		*y = append(*y, y_i)
+	}
+}
 
 func ConfusionMatrix(y, pred_y []string) {
 	if len(y) != len(pred_y) {
