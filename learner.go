@@ -261,6 +261,7 @@ type CW struct {
 	alpha float64
 	phi   float64
 	diag  []float64
+	//     covar [][]float64
 }
 
 func NewCW() *CW {
@@ -286,6 +287,7 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 
 		argmax := -1
 		max := math.Inf(-1)
+		margins := make([]float64, len(this.Weight), len(this.Weight))
 
 		for labelid := 0; labelid < len(this.Weight); labelid++ {
 			w := &this.Weight[labelid]
@@ -309,6 +311,7 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 				max = dot
 				argmax = labelid
 			}
+			margins[labelid] = dot
 		}
 		if argmax == -1 {
 			fmt.Println(max, argmax)
@@ -316,7 +319,7 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 		}
 
 		if argmax != yi {
-			M := max
+			M := margins[yi] - max
 			_n := 1. + 2.*this.phi*M
 			V := 0.
 			for _, ft := range xi {
