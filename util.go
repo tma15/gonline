@@ -64,8 +64,10 @@ func LoadTrainData(fname string, ftdict *Dict, labeldict *Dict, x *[][]Feature, 
 		}
 		y_i := (*labeldict).Elem2id[label_i]
 
-		x_i := make([]Feature, 0, 100000)
-		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
+		features := strings.Split(strings.Trim(fv[1], " "), " ")
+		x_i := make([]Feature, 0, len(features))
+
+		for _, k := range features {
 			sp := strings.Split(k, ":")
 			if len(sp) != 2 {
 				continue
@@ -105,8 +107,9 @@ func LoadTestData(fname string, ftdict *Dict, labeldict *Dict, x *[][]Feature, y
 			continue
 		}
 		y_i := (*labeldict).Elem2id[label_i]
-		x_i := make([]Feature, 0, 100000)
-		for _, k := range strings.Split(strings.Trim(fv[1], " "), " ") {
+		features := strings.Split(strings.Trim(fv[1], " "), " ")
+		x_i := make([]Feature, 0, len(features))
+		for _, k := range features {
 			sp := strings.Split(k, ":")
 			if len(sp) != 2 {
 				continue

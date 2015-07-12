@@ -13,7 +13,7 @@ type Dict struct {
 }
 
 func NewDict() Dict {
-	d := Dict{Id2elem: make([]string, 0, 100000),
+	d := Dict{Id2elem: make([]string, 0, 10000),
 		Elem2id: make(map[string]int)}
 	return d
 }
@@ -124,7 +124,7 @@ func (this *Perceptron) Fit(x *[][]Feature, y *[]int) {
 		/* expand label size */
 		if len(this.Weight) <= yi {
 			for k := len(this.Weight); k <= yi; k++ {
-				this.Weight = append(this.Weight, make([]float64, 0, 100000))
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
 
@@ -199,7 +199,7 @@ func (this *PA) Fit(x *[][]Feature, y *[]int) {
 		/* expand label size */
 		if len(this.Weight) <= yi {
 			for k := len(this.Weight); k <= yi; k++ {
-				this.Weight = append(this.Weight, make([]float64, 0, 100000))
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
 
@@ -281,7 +281,7 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 		/* expand label size */
 		if len(this.Weight) <= yi {
 			for k := len(this.Weight); k <= yi; k++ {
-				this.Weight = append(this.Weight, make([]float64, 0, 100000))
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
 
