@@ -62,7 +62,7 @@ func train(args []string) {
 	for i := 0; i < loop; i++ {
 		for _, trainfile := range fs.Args() {
 			gonline.LoadTrainData(trainfile, &ftdict, &labeldict, &x_data, &y_data)
-			gonline.ShuffleData(&x_data, &y_data)
+			//             gonline.ShuffleData(&x_data, &y_data)
 			learner.Fit(&x_data, &y_data)
 			if testfile != "" {
 				x_test := make([][]gonline.Feature, 0, 10000)

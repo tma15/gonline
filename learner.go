@@ -254,18 +254,22 @@ func tauII(max, norm, C float64) float64 {
 }
 
 /*
-http://www.cs.jhu.edu/~mdredze/publications/icml_variance.pdf
+- http://www.cs.jhu.edu/~mdredze/publications/icml_variance.pdf
+- http://www.aclweb.org/anthology/D09-1052
+- http://www.jmlr.org/papers/volume13/crammer12a/crammer12a.pdf
 */
 type CW struct {
 	*Learner
-	alpha float64
+	a     float64 /* initial variance parameter */
 	phi   float64
 	diag  []float64
-	//     covar [][]float64
+	covar [][]float64
 }
 
 func NewCW() *CW {
-	cw := CW{&Learner{}, 0.1, 0.1, make([]float64, 0, 1000)}
+	cdf := Normal_CDF(0.0, 1.0)
+	cw := CW{&Learner{}, 1., cdf(0.9), make([]float64, 0, 1000),
+		make([][]float64, 0, 100)}
 	return &cw
 }
 
@@ -302,11 +306,36 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 				}
 				if len(this.diag) <= ft.Id {
 					for k := len(this.diag); k <= ft.Id; k++ {
-						this.diag = append(this.diag, 1.)
+						this.diag = append(this.diag, 1.*this.a)
 					}
 				}
+				//                 if len(this.covar) <= ft.Id { /* initialize covariance matrix */
+				//                     if len(this.covar) >= 1 { /* expand previous row */
+				//                         for f := 0; f < len(this.covar); f++ {
+				//                             for a := len(this.covar); a <= ft.Id; a++ {
+				//                                 this.covar[f] = append(this.covar[f], 0.)
+				//                             }
+				//                         }
+				//                     }
+				//                     for k := len(this.covar); k <= ft.Id; k++ {
+				//                         this.covar = append(this.covar, make([]float64, 0, 1000))
+				//                         for m := len(this.covar[k]); m <= ft.Id; m++ {
+				//                             this.covar[k] = append(this.covar[k], 0)
+				//                         }
+				//                         this.covar[k][ft.Id] = 1.
+				//                     }
+				//                 }
+				//                 for _, arr := range this.covar {
+				//                     fmt.Println(ft.Id, arr)
+				//                 }
+				//                 fmt.Println("")
+				//                 if tt >= 3 {
+				//                     os.Exit(1)
+				//                 }
 				dot += (*w)[ft.Id] * ft.Val
+				//                 fmt.Println((*w)[ft.Id])
 			}
+			//             fmt.Println(dot)
 			if max < dot {
 				max = dot
 				argmax = labelid
@@ -332,11 +361,40 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 			for _, ft := range xi {
 				this.Weight[yi][ft.Id] += ai * this.diag[ft.Id] * ft.Val
 				this.Weight[argmax][ft.Id] -= ai * this.diag[ft.Id] * ft.Val
-				_n = 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
-				this.diag[ft.Id] -= this.diag[ft.Id] * ft.Val * _n * ft.Val * this.diag[ft.Id]
+
+				beta := 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
+
+				this.diag[ft.Id] -= this.diag[ft.Id] * ft.Val * beta * ft.Val * this.diag[ft.Id]
+
+				//                 eta := ai * this.phi / math.Sqrt(V)
+				//                 if math.IsInf(eta, -1) {
+				//                     fmt.Println("eta -Inf")
+				//                     os.Exit(1)
+				//                     eta = 0.
+				//                 }
+				//                 if math.IsNaN(this.diag[ft.Id] / (1. + eta*this.diag[ft.Id]*ft.Val*ft.Val)) {
+				//                     fmt.Println("diag become NaN")
+				//                     fmt.Println("diag", this.diag[ft.Id])
+				//                     fmt.Println("eta", eta, this.phi, math.Sqrt(V))
+				//                     eta = 0.
+				//                     os.Exit(1)
+				//                 }
+				//                 if 1.+eta*this.diag[ft.Id]*ft.Val*ft.Val != 0. {
+				//                 this.diag[ft.Id] /= (1. + eta*this.diag[ft.Id]*ft.Val*ft.Val) /* approximate diagonal update */
+				//                 }
+				//                 if math.IsNaN(this.diag[ft.Id]) {
+				//                     fmt.Println("diag NAN")
+				//                     os.Exit(1)
+				//                 }
+				//                 this.diag[ft.Id] /= (1. + 2.*ai*this.phi*this.diag[ft.Id]*ft.Val*ft.Val) /* exact diagonal update */
 			}
 		}
 	}
+}
+
+// Cumulative Distribution Function for the Normal distribution
+func Normal_CDF(mu, sigma float64) func(x float64) float64 {
+	return func(x float64) float64 { return ((1.0 / 2.0) * (1 + math.Erf((x-mu)/(sigma*math.Sqrt2)))) }
 }
 
 func Min(x, y float64) float64 {
@@ -353,5 +411,4 @@ func Max(x, y float64) float64 {
 	} else {
 		return y
 	}
-
 }
