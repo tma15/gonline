@@ -20,6 +20,9 @@ func (this *Classifier) Predict(x *[]Feature) int {
 		dot := 0.
 		w := this.Weight[labelid]
 		for _, ft := range *x {
+			if ft.Id >= len(w) {
+				continue
+			}
 			dot += w[ft.Id] * ft.Val
 		}
 		if dot > max {
@@ -47,7 +50,6 @@ func LoadClassifier(fname string, ftdict, labeldict *Dict) Classifier {
 
 	line, err = reader.ReadString('\n')
 	ftsize, _ := strconv.Atoi(strings.Trim(strings.Split(line, "\t")[1], "\n"))
-	//     fmt.Println(labelsize, ftsize)
 	for i := 0; i < labelsize; i++ {
 		line, err = reader.ReadString('\n')
 		(*labeldict).AddElem(strings.Trim(line, "\n"))

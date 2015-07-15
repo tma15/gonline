@@ -167,19 +167,19 @@ http://www.jmlr.org/papers/volume7/crammer06a/crammer06a.pdf
 */
 type PA struct {
 	*Learner
-	C   float64
+	C   float64 /* degree of aggressiveness */
 	Tau func(float64, float64, float64) float64
 }
 
-func NewPA(mode string) *PA {
+func NewPA(mode string, C float64) *PA {
 	var pa PA
 	switch mode {
 	case "":
-		pa = PA{&Learner{}, 0.01, tau}
+		pa = PA{&Learner{}, C, tau} /* PA doesn't use C actually */
 	case "I":
-		pa = PA{&Learner{}, 0.01, tauI}
+		pa = PA{&Learner{}, C, tauI}
 	case "II":
-		pa = PA{&Learner{}, 0.01, tauII}
+		pa = PA{&Learner{}, C, tauII}
 	default:
 		os.Exit(1)
 	}
@@ -265,9 +265,9 @@ type CW struct {
 	diag [][]float64
 }
 
-func NewCW() *CW {
+func NewCW(eta float64) *CW {
 	cdf := Normal_CDF(0.0, 1.0)
-	cw := CW{&Learner{}, 1., cdf(0.1), make([][]float64, 0, 100)}
+	cw := CW{&Learner{}, 1., cdf(eta), make([][]float64, 0, 100)}
 	return &cw
 }
 
@@ -327,49 +327,144 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 			os.Exit(1)
 		}
 
-		if argmax != yi {
-			M := margins[yi]
-			_n := 1. + 2.*this.phi*M
-			V := 0.
-			for _, ft := range xi {
-				V += ft.Val * ft.Val * this.diag[yi][ft.Id]
-			}
-			sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
-			gamma := (-1.*_n + sqrt)
-			gamma /= 4. * this.phi * V
-			ai := Max(0., gamma)
-			if ai > 0. {
-				for _, ft := range xi {
-					this.Weight[yi][ft.Id] += ai * this.diag[yi][ft.Id] * ft.Val
-					beta := 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
-					this.diag[yi][ft.Id] -= this.diag[yi][ft.Id] * ft.Val * beta * ft.Val * this.diag[yi][ft.Id]
-				}
-			}
+		/* update parameters of true label */
+		M := margins[yi]
+		_diag := &this.diag[yi]
+		V := 0.
+		for _, ft := range xi {
+			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		}
+		_n := 1. + 2.*this.phi*M
+		sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
+		gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
+		alpha := Max(0., gamma)
+		beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
+		for _, ft := range xi {
+			this.Weight[yi][ft.Id] += alpha * (*_diag)[ft.Id] * ft.Val
+			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		}
 
-			M = max
-			_n = 1. + 2.*this.phi*M
-			V = 0.
-			for _, ft := range xi {
-				V += ft.Val * ft.Val * this.diag[argmax][ft.Id]
-			}
-			sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
-			gamma = (-1.*_n + sqrt)
-			gamma /= 4. * this.phi * V
-			ai = Max(0., gamma)
-			if ai > 0. {
-				for _, ft := range xi {
-					this.Weight[argmax][ft.Id] -= ai * this.diag[argmax][ft.Id] * ft.Val
-					beta := 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
-					this.diag[argmax][ft.Id] -= this.diag[argmax][ft.Id] * ft.Val * beta * ft.Val * this.diag[argmax][ft.Id]
-				}
-			}
+		/* update parameters of predicted label */
+		_diag = &this.diag[argmax]
+		V = 0.
+		for _, ft := range xi {
+			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		}
+		_n = 1. + 2.*this.phi*M
+		sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
+		gamma = (-1.*_n + sqrt) / (4. * this.phi * V)
+		alpha = Max(0., gamma)
+		beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
+		for _, ft := range xi {
+			this.Weight[argmax][ft.Id] -= alpha * (*_diag)[ft.Id] * ft.Val
+			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
 		}
 	}
 }
 
-// Cumulative Distribution Function for the Normal distribution
+/*
+- http://webee.technion.ac.il/people/koby/publications/arow_nips09.pdf
+*/
+type Arow struct {
+	*Learner
+	a     float64 /* initial variance parameter */
+	gamma float64 /* regularization parameter */
+	diag  [][]float64
+}
+
+func NewArow(gamma float64) *Arow {
+	arow := Arow{&Learner{}, 1., gamma, make([][]float64, 0, 100)}
+	return &arow
+}
+
+func (this *Arow) Name() string {
+	return "AROW"
+}
+
+func (this *Arow) Fit(x *[][]Feature, y *[]int) {
+	for i := 0; i < len(*x); i++ {
+		xi := (*x)[i]
+		yi := (*y)[i]
+
+		/* expand label size */
+		if len(this.Weight) <= yi {
+			for k := len(this.Weight); k <= yi; k++ {
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
+			}
+		}
+		if len(this.diag) <= yi {
+			for k := len(this.diag); k <= yi; k++ {
+				this.diag = append(this.diag, make([]float64, 0, 10000))
+			}
+		}
+
+		argmax := -1
+		max := math.Inf(-1)
+		margins := make([]float64, len(this.Weight), len(this.Weight))
+
+		for labelid := 0; labelid < len(this.Weight); labelid++ {
+			w := &this.Weight[labelid]
+			d := &this.diag[labelid]
+			dot := 0.
+			for _, ft := range xi {
+
+				/* expand feature size */
+				if len(*w) <= ft.Id {
+					for k := len(*w); k <= ft.Id; k++ {
+						*w = append(*w, 0.)
+					}
+				}
+				if len(*d) <= ft.Id {
+					for k := len(*d); k <= ft.Id; k++ {
+						*d = append((*d), 1.*this.a)
+					}
+				}
+
+				dot += (*w)[ft.Id] * ft.Val
+			}
+			if max < dot {
+				max = dot
+				argmax = labelid
+			}
+			margins[labelid] = dot
+		}
+		if argmax == -1 {
+			fmt.Println(max, argmax)
+			os.Exit(1)
+		}
+
+		/* update parameters of true label */
+		loss := Max(0., 1.+margins[argmax]-margins[yi])
+		_diag := &this.diag[yi]
+		V := 0.
+		for _, ft := range xi {
+			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		}
+		beta := 1. / (V + this.gamma)
+		alpha := loss * beta
+		for _, ft := range xi {
+			this.Weight[yi][ft.Id] += alpha * (*_diag)[ft.Id] * ft.Val
+			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		}
+
+		/* update parameters of predicted label */
+		_diag = &this.diag[argmax]
+		V = 0.
+		for _, ft := range xi {
+			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		}
+		beta = 1. / (V + this.gamma)
+		alpha = loss * beta
+		for _, ft := range xi {
+			this.Weight[argmax][ft.Id] -= alpha * (*_diag)[ft.Id] * ft.Val
+			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		}
+	}
+}
+
+/* Cumulative Distribution Function for the Normal distribution */
 func Normal_CDF(mu, sigma float64) func(x float64) float64 {
-	return func(x float64) float64 { return ((1.0 / 2.0) * (1 + math.Erf((x-mu)/(sigma*math.Sqrt2)))) }
+	return func(x float64) float64 { return (0.5 * (1 - math.Erf((mu-x)/(sigma*math.Sqrt2)))) }
 }
 
 func Min(x, y float64) float64 {

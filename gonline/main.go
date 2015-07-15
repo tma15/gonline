@@ -11,12 +11,12 @@ func train(args []string) {
 	var (
 		model     string
 		algorithm string
-		//         eta       float64
-		//         c         float64
-		loop     int
-		testfile string
+		eta       float64
+		gamma     float64
+		C         float64
+		loop      int
+		testfile  string
 	)
-	//     fmt.Println(args)
 
 	fs := flag.NewFlagSet("train", flag.ExitOnError)
 	fs.StringVar(&model, "model", "", "model filename")
@@ -24,8 +24,9 @@ func train(args []string) {
 	fs.StringVar(&testfile, "t", "", "test file")
 	fs.StringVar(&algorithm, "algorithm", "", "algorithm for training {perceptron, pa2, adagrad")
 	fs.StringVar(&algorithm, "a", "", "algorithm for training {perceptron, pa, pa1, pa2, adagrad")
-	//     fs.Float64Var(&eta, "eta", 0.1, "learning rate")
-	//     fs.Float64Var(&c, "c", 1e-5, "regularization parameter")
+	fs.Float64Var(&eta, "eta", 0.8, "confidence parameter for Confidence Weighted")
+	fs.Float64Var(&gamma, "g", 10., "regularization parameter for AROW")
+	fs.Float64Var(&C, "C", 0.01, "regularization parameter for AROW")
 	fs.IntVar(&loop, "i", 1, "iteration number")
 	fs.Parse(args)
 
@@ -40,18 +41,20 @@ func train(args []string) {
 	ftdict = gonline.NewDict()
 	labeldict = gonline.NewDict()
 
-    fmt.Println("algorithm:", algorithm)
+	fmt.Println("algorithm:", algorithm)
 	switch algorithm {
 	case "perceptron":
 		learner = gonline.NewPerceptron()
 	case "pa":
-		learner = gonline.NewPA("")
+		learner = gonline.NewPA("", C)
 	case "pa1":
-		learner = gonline.NewPA("I")
+		learner = gonline.NewPA("I", C)
 	case "pa2":
-		learner = gonline.NewPA("II")
+		learner = gonline.NewPA("II", C)
 	case "cw":
-		learner = gonline.NewCW()
+		learner = gonline.NewCW(eta)
+	case "arow":
+		learner = gonline.NewArow(gamma)
 	default:
 		panic("Invalid algorithm")
 	}
@@ -63,7 +66,7 @@ func train(args []string) {
 	for i := 0; i < loop; i++ {
 		for _, trainfile := range fs.Args() {
 			gonline.LoadTrainData(trainfile, &ftdict, &labeldict, &x_data, &y_data)
-			//             gonline.ShuffleData(&x_data, &y_data)
+			gonline.ShuffleData(&x_data, &y_data)
 			learner.Fit(&x_data, &y_data)
 			if testfile != "" {
 				x_test := make([][]gonline.Feature, 0, 10000)
