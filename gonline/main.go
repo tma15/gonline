@@ -40,6 +40,7 @@ func train(args []string) {
 	ftdict = gonline.NewDict()
 	labeldict = gonline.NewDict()
 
+    fmt.Println("algorithm:", algorithm)
 	switch algorithm {
 	case "perceptron":
 		learner = gonline.NewPerceptron()

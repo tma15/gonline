@@ -260,16 +260,14 @@ func tauII(max, norm, C float64) float64 {
 */
 type CW struct {
 	*Learner
-	a     float64 /* initial variance parameter */
-	phi   float64
-	diag  []float64
-	covar [][]float64
+	a    float64 /* initial variance parameter */
+	phi  float64
+	diag [][]float64
 }
 
 func NewCW() *CW {
 	cdf := Normal_CDF(0.0, 1.0)
-	cw := CW{&Learner{}, 1., cdf(0.9), make([]float64, 0, 1000),
-		make([][]float64, 0, 100)}
+	cw := CW{&Learner{}, 1., cdf(0.1), make([][]float64, 0, 100)}
 	return &cw
 }
 
@@ -288,6 +286,11 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
+		if len(this.diag) <= yi {
+			for k := len(this.diag); k <= yi; k++ {
+				this.diag = append(this.diag, make([]float64, 0, 10000))
+			}
+		}
 
 		argmax := -1
 		max := math.Inf(-1)
@@ -295,6 +298,7 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 
 		for labelid := 0; labelid < len(this.Weight); labelid++ {
 			w := &this.Weight[labelid]
+			d := &this.diag[labelid]
 			dot := 0.
 			for _, ft := range xi {
 
@@ -304,38 +308,14 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 						*w = append(*w, 0.)
 					}
 				}
-				if len(this.diag) <= ft.Id {
-					for k := len(this.diag); k <= ft.Id; k++ {
-						this.diag = append(this.diag, 1.*this.a)
+				if len(*d) <= ft.Id {
+					for k := len(*d); k <= ft.Id; k++ {
+						*d = append((*d), 1.*this.a)
 					}
 				}
-				//                 if len(this.covar) <= ft.Id { /* initialize covariance matrix */
-				//                     if len(this.covar) >= 1 { /* expand previous row */
-				//                         for f := 0; f < len(this.covar); f++ {
-				//                             for a := len(this.covar); a <= ft.Id; a++ {
-				//                                 this.covar[f] = append(this.covar[f], 0.)
-				//                             }
-				//                         }
-				//                     }
-				//                     for k := len(this.covar); k <= ft.Id; k++ {
-				//                         this.covar = append(this.covar, make([]float64, 0, 1000))
-				//                         for m := len(this.covar[k]); m <= ft.Id; m++ {
-				//                             this.covar[k] = append(this.covar[k], 0)
-				//                         }
-				//                         this.covar[k][ft.Id] = 1.
-				//                     }
-				//                 }
-				//                 for _, arr := range this.covar {
-				//                     fmt.Println(ft.Id, arr)
-				//                 }
-				//                 fmt.Println("")
-				//                 if tt >= 3 {
-				//                     os.Exit(1)
-				//                 }
+
 				dot += (*w)[ft.Id] * ft.Val
-				//                 fmt.Println((*w)[ft.Id])
 			}
-			//             fmt.Println(dot)
 			if max < dot {
 				max = dot
 				argmax = labelid
@@ -348,45 +328,40 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 		}
 
 		if argmax != yi {
-			M := margins[yi] - max
+			M := margins[yi]
 			_n := 1. + 2.*this.phi*M
 			V := 0.
 			for _, ft := range xi {
-				V += ft.Val * ft.Val * this.diag[ft.Id]
+				V += ft.Val * ft.Val * this.diag[yi][ft.Id]
 			}
 			sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
 			gamma := (-1.*_n + sqrt)
 			gamma /= 4. * this.phi * V
 			ai := Max(0., gamma)
+			if ai > 0. {
+				for _, ft := range xi {
+					this.Weight[yi][ft.Id] += ai * this.diag[yi][ft.Id] * ft.Val
+					beta := 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
+					this.diag[yi][ft.Id] -= this.diag[yi][ft.Id] * ft.Val * beta * ft.Val * this.diag[yi][ft.Id]
+				}
+			}
+
+			M = max
+			_n = 1. + 2.*this.phi*M
+			V = 0.
 			for _, ft := range xi {
-				this.Weight[yi][ft.Id] += ai * this.diag[ft.Id] * ft.Val
-				this.Weight[argmax][ft.Id] -= ai * this.diag[ft.Id] * ft.Val
-
-				beta := 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
-
-				this.diag[ft.Id] -= this.diag[ft.Id] * ft.Val * beta * ft.Val * this.diag[ft.Id]
-
-				//                 eta := ai * this.phi / math.Sqrt(V)
-				//                 if math.IsInf(eta, -1) {
-				//                     fmt.Println("eta -Inf")
-				//                     os.Exit(1)
-				//                     eta = 0.
-				//                 }
-				//                 if math.IsNaN(this.diag[ft.Id] / (1. + eta*this.diag[ft.Id]*ft.Val*ft.Val)) {
-				//                     fmt.Println("diag become NaN")
-				//                     fmt.Println("diag", this.diag[ft.Id])
-				//                     fmt.Println("eta", eta, this.phi, math.Sqrt(V))
-				//                     eta = 0.
-				//                     os.Exit(1)
-				//                 }
-				//                 if 1.+eta*this.diag[ft.Id]*ft.Val*ft.Val != 0. {
-				//                 this.diag[ft.Id] /= (1. + eta*this.diag[ft.Id]*ft.Val*ft.Val) /* approximate diagonal update */
-				//                 }
-				//                 if math.IsNaN(this.diag[ft.Id]) {
-				//                     fmt.Println("diag NAN")
-				//                     os.Exit(1)
-				//                 }
-				//                 this.diag[ft.Id] /= (1. + 2.*ai*this.phi*this.diag[ft.Id]*ft.Val*ft.Val) /* exact diagonal update */
+				V += ft.Val * ft.Val * this.diag[argmax][ft.Id]
+			}
+			sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
+			gamma = (-1.*_n + sqrt)
+			gamma /= 4. * this.phi * V
+			ai = Max(0., gamma)
+			if ai > 0. {
+				for _, ft := range xi {
+					this.Weight[argmax][ft.Id] -= ai * this.diag[argmax][ft.Id] * ft.Val
+					beta := 2. * ai * this.phi / (1. + 2.*ai*this.phi*V)
+					this.diag[argmax][ft.Id] -= this.diag[argmax][ft.Id] * ft.Val * beta * ft.Val * this.diag[argmax][ft.Id]
+				}
 			}
 		}
 	}
