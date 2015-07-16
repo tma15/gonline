@@ -22,11 +22,11 @@ func train(args []string) {
 	fs.StringVar(&model, "model", "", "model filename")
 	fs.StringVar(&model, "m", "", "model filename")
 	fs.StringVar(&testfile, "t", "", "test file")
-	fs.StringVar(&algorithm, "algorithm", "", "algorithm for training {perceptron, pa2, adagrad")
-	fs.StringVar(&algorithm, "a", "", "algorithm for training {perceptron, pa, pa1, pa2, adagrad")
+	fs.StringVar(&algorithm, "algorithm", "", "algorithm for training {p, pa, pa1, pa2, cw, arow}")
+	fs.StringVar(&algorithm, "a", "", "algorithm for training {p, pa, pa1, pa2, cw, arow}")
 	fs.Float64Var(&eta, "eta", 0.8, "confidence parameter for Confidence Weighted")
 	fs.Float64Var(&gamma, "g", 10., "regularization parameter for AROW")
-	fs.Float64Var(&C, "C", 0.01, "regularization parameter for AROW")
+	fs.Float64Var(&C, "C", 0.01, "degree of aggressiveness for PA-I and PA-II")
 	fs.IntVar(&loop, "i", 1, "iteration number")
 	fs.Parse(args)
 
@@ -43,7 +43,7 @@ func train(args []string) {
 
 	fmt.Println("algorithm:", algorithm)
 	switch algorithm {
-	case "perceptron":
+	case "p":
 		learner = gonline.NewPerceptron()
 	case "pa":
 		learner = gonline.NewPA("", C)
@@ -56,7 +56,7 @@ func train(args []string) {
 	case "arow":
 		learner = gonline.NewArow(gamma)
 	default:
-		panic("Invalid algorithm")
+		panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
 	}
 
 	if testfile != "" {
