@@ -57,6 +57,7 @@ type LearnerInterface interface {
 	Fit(*[][]Feature, *[]int)
 	Save(string, *Dict, *Dict)
 	GetParam() *[][]float64
+	SetParam(*[][]float64)
 }
 
 type Learner struct {
@@ -100,6 +101,10 @@ func (this *Learner) Save(fname string, ftdict *Dict, labeldict *Dict) {
 
 func (this *Learner) GetParam() *[][]float64 {
 	return &this.Weight
+}
+
+func (this *Learner) SetParam(w *[][]float64) {
+	this.Weight = *w
 }
 
 type Perceptron struct {
@@ -401,7 +406,6 @@ func (this *Arow) Fit(x *[][]Feature, y *[]int) {
 		argmax := -1
 		max := math.Inf(-1)
 		margins := make([]float64, len(this.Weight), len(this.Weight))
-
 		for labelid := 0; labelid < len(this.Weight); labelid++ {
 			w := &this.Weight[labelid]
 			d := &this.diag[labelid]
@@ -416,7 +420,7 @@ func (this *Arow) Fit(x *[][]Feature, y *[]int) {
 				}
 				if len(*d) <= ft.Id {
 					for k := len(*d); k <= ft.Id; k++ {
-						*d = append((*d), 1.*this.a)
+						*d = append(*d, 1.*this.a)
 					}
 				}
 
