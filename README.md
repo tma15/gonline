@@ -1,7 +1,13 @@
 ==
 Go Online Learner
 ==
-A library of online learning algorithms written in golang.
+A library of online machine learning algorithms written in golang.
+
+Install
+==
+```
+go get github.com/tma15/gonline
+```
 
 Supported Algorithms
 ==
@@ -16,12 +22,16 @@ Characters in parentheses are option arguments for `gonline train`.
 
 Usage
 ==
-To train learner:
-
+Template command of training:
 ```
-$wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/news20.bz2
-$wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/news20.t.bz2
-$bunzip2 news20.bz2 news20.t.bz2
+$./gonline train -a <ALGORITHM> -m <MODELFILE> -t <TESTINGFILE> -i <ITERATION> <TRAININGFILE1> <TRAININGFILE2> ... <TRAININGFILEK>
+```
+
+To train learner by AROW algorithm:
+```
+$wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/news20.scale.bz2
+$wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/news20.t.scale.bz2
+$bunzip2 news20.scale.bz2 news20.t.scale.bz2
 $./gonline train -a arow -m model -i 7 -t ./news20.t.scale ./news20.scale
 algorithm: arow
 testfile ./news20.t.scale
@@ -32,7 +42,6 @@ epoch:4 test accuracy: 0.804408 (3212/3993)
 epoch:5 test accuracy: 0.800902 (3198/3993)
 epoch:6 test accuracy: 0.800651 (3197/3993)
 epoch:7 test accuracy: 0.803907 (3210/3993)
-train accuracy: 0.977345 (15574/15935)
 ```
 
 You can see more command options using help option:
@@ -49,6 +58,11 @@ Usage of train:
   -m="": model filename
   -model="": model filename
   -t="": test file
+```
+
+Template command of testing:
+```
+$./gonline test -m <MODELFILE> <TESTINGFILE1> <TESTINGFILE2> ... <TESTINGFILEK>
 ```
 
 To evaluate learner:
