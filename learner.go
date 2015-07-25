@@ -32,62 +32,56 @@ func (this *Dict) AddElem(elem string) {
 	this.Id2elem = append(this.Id2elem, elem)
 }
 
-func conv2fv(ftdict *Dict, xmap map[string]float64) *[]Feature {
-	x := make([]Feature, len(xmap), len(xmap))
-	id := 0
-	for name, val := range xmap {
-		x[id] = NewFeature(id, val, name)
-		id += 1
-	}
-	return &x
-}
+// type Feature struct {
+//     Id    int
+//     Val   float64
+//     Label string
+// }
 
-type Feature struct {
-	Id    int
-	Val   float64
-	Label string
-}
-
-func NewFeature(id int, val float64, label string) Feature {
-	return Feature{Id: id, Val: val, Label: label}
-}
+// func NewFeature(id int, val float64, label string) Feature {
+//     return Feature{Id: id, Val: val, Label: label}
+// }
 
 type LearnerInterface interface {
 	Name() string
-	Fit(*[][]Feature, *[]int)
-	Save(string, *Dict, *Dict)
+	Fit(*[]map[string]float64, *[]string)
+	Save(string)
 	GetParam() *[][]float64
+	GetDics() (*Dict, *Dict)
 	SetParam(*[][]float64)
+	SetDics(*Dict, *Dict)
 }
 
 type Learner struct {
-	Weight [][]float64
+	Weight    [][]float64
+	FtDict    Dict
+	LabelDict Dict
 }
 
 func (this *Learner) Name() string {
 	return "Learner"
 }
 
-func (this *Learner) Fit(*[][]Feature, *[]int) {
+func (this *Learner) Fit(*[]map[string]float64, *[]int) {
 	/* does not implement */
 }
 
-func (this *Learner) Save(fname string, ftdict *Dict, labeldict *Dict) {
+func (this *Learner) Save(fname string) {
 	fp, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		panic(err)
 	}
 	writer := bufio.NewWriterSize(fp, 4096*32)
-	labelsize := len((*labeldict).Id2elem)
-	ftsize := len((*ftdict).Id2elem)
+	labelsize := len(this.LabelDict.Id2elem)
+	ftsize := len(this.FtDict.Id2elem)
 	writer.WriteString(fmt.Sprintf("labelsize\t%d\n", labelsize))
 	writer.WriteString(fmt.Sprintf("featuresize\t%d\n", ftsize))
 	for i := 0; i < labelsize; i++ {
-		label := (*labeldict).Id2elem[i]
+		label := this.LabelDict.Id2elem[i]
 		writer.WriteString(fmt.Sprintf("%s\n", label))
 	}
 	for i := 0; i < ftsize; i++ {
-		ft := (*ftdict).Id2elem[i]
+		ft := this.FtDict.Id2elem[i]
 		writer.WriteString(fmt.Sprintf("%s\n", ft))
 	}
 	for labelid := 0; labelid < labelsize; labelid++ {
@@ -103,8 +97,17 @@ func (this *Learner) GetParam() *[][]float64 {
 	return &this.Weight
 }
 
+func (this *Learner) GetDics() (*Dict, *Dict) {
+	return &this.FtDict, &this.LabelDict
+}
+
 func (this *Learner) SetParam(w *[][]float64) {
 	this.Weight = *w
+}
+
+func (this *Learner) SetDics(ftdict, labeldict *Dict) {
+	this.FtDict = *ftdict
+	this.LabelDict = *labeldict
 }
 
 type Perceptron struct {
@@ -112,56 +115,66 @@ type Perceptron struct {
 }
 
 func NewPerceptron() *Perceptron {
-	l := Perceptron{&Learner{}}
-	l.Weight = make([][]float64, 0, 1000)
-	return &l
+	p := Perceptron{&Learner{}}
+	p.Weight = make([][]float64, 0, 1000)
+	p.FtDict = NewDict()
+	p.LabelDict = NewDict()
+	return &p
 }
 
 func (this *Perceptron) Name() string {
 	return "Perceptron"
 }
 
-func (this *Perceptron) Fit(x *[][]Feature, y *[]int) {
+func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
 
-		/* expand label size */
-		if len(this.Weight) <= yi {
-			for k := len(this.Weight); k <= yi; k++ {
+		for name, _ := range xi {
+			if !this.FtDict.HasElem(name) {
+				this.FtDict.AddElem(name)
+			}
+		}
+		if !this.LabelDict.HasElem(yi) {
+			this.LabelDict.AddElem(yi)
+		}
+		tid := this.LabelDict.Elem2id[yi]
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
 
 		argmax := -1
 		max := math.Inf(-1)
-
-		for labelid := 0; labelid < len(this.Weight); labelid++ {
-
-			w := &this.Weight[labelid]
+		for yid := 0; yid < len(this.Weight); yid++ {
+			w := &this.Weight[yid]
 			dot := 0.
-			for _, ft := range xi {
+			for ft, val := range xi {
+				ftid := this.FtDict.Elem2id[ft]
 
 				/* expand feature size */
-				if len(*w) <= ft.Id {
-					for k := len(*w); k <= ft.Id; k++ {
+				if len(*w) <= ftid {
+					for k := len(*w); k <= ftid; k++ {
 						*w = append(*w, 0.)
 					}
 				}
 
-				dot += (*w)[ft.Id] * ft.Val
+				dot += (*w)[ftid] * val
 			}
 
 			if max < dot {
 				max = dot
-				argmax = labelid
+				argmax = yid
 			}
 		}
 
-		if argmax != yi {
-			for _, ft := range xi {
-				this.Weight[yi][ft.Id] += ft.Val
-				this.Weight[argmax][ft.Id] -= ft.Val
+		if argmax != tid {
+			for ft, val := range xi {
+				ftid := this.FtDict.Elem2id[ft]
+				this.Weight[tid][ftid] += val
+				this.Weight[argmax][ftid] -= val
 			}
 		}
 	}
@@ -189,6 +202,8 @@ func NewPA(mode string, C float64) *PA {
 		os.Exit(1)
 	}
 	pa.Weight = make([][]float64, 0, 1000)
+	pa.FtDict = NewDict()
+	pa.LabelDict = NewDict()
 	return &pa
 }
 
@@ -196,14 +211,29 @@ func (this *PA) Name() string {
 	return "PA"
 }
 
-func (this *PA) Fit(x *[][]Feature, y *[]int) {
+func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
 
+		for name, _ := range xi {
+			if !this.FtDict.HasElem(name) {
+				this.FtDict.AddElem(name)
+			}
+		}
+		if !this.LabelDict.HasElem(yi) {
+			this.LabelDict.AddElem(yi)
+		}
+		tid := this.LabelDict.Elem2id[yi]
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
+			}
+		}
+
 		/* expand label size */
-		if len(this.Weight) <= yi {
-			for k := len(this.Weight); k <= yi; k++ {
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
@@ -211,36 +241,37 @@ func (this *PA) Fit(x *[][]Feature, y *[]int) {
 		argmax := -1
 		max := math.Inf(-1)
 
-		for labelid := 0; labelid < len(this.Weight); labelid++ {
-			w := &this.Weight[labelid]
+		for yid := 0; yid < len(this.Weight); yid++ {
+			w := &this.Weight[yid]
 			dot := 0.
-			for _, ft := range xi {
-
+			for ft, val := range xi {
+				ftid := this.FtDict.Elem2id[ft]
 				/* expand feature size */
-				if len(*w) <= ft.Id {
-					for k := len(*w); k <= ft.Id; k++ {
+				if len(*w) <= ftid {
+					for k := len(*w); k <= ftid; k++ {
 						*w = append(*w, 0.)
 					}
 				}
 
-				dot += (*w)[ft.Id] * ft.Val
+				dot += (*w)[ftid] * val
 			}
 
 			if max < dot {
 				max = dot
-				argmax = labelid
+				argmax = yid
 			}
 		}
 
-		if argmax != yi {
+		if argmax != tid {
 			norm := 0.
-			for _, ft := range xi {
-				norm += ft.Val * ft.Val
+			for _, val := range xi {
+				norm += val * val
 			}
-			for _, ft := range xi {
-				tau := this.Tau(max, norm, this.C)
-				this.Weight[yi][ft.Id] += tau * ft.Val
-				this.Weight[argmax][ft.Id] -= tau * ft.Val
+			tau := this.Tau(max, norm, this.C)
+			for ft, val := range xi {
+				ftid := this.FtDict.Elem2id[ft]
+				this.Weight[tid][ftid] += tau * val
+				this.Weight[argmax][ftid] -= tau * val
 			}
 		}
 	}
@@ -273,6 +304,9 @@ type CW struct {
 func NewCW(eta float64) *CW {
 	cdf := Normal_CDF(0.0, 1.0)
 	cw := CW{&Learner{}, 1., cdf(eta), make([][]float64, 0, 100)}
+	cw.FtDict = NewDict()
+	cw.LabelDict = NewDict()
+
 	return &cw
 }
 
@@ -280,19 +314,30 @@ func (this *CW) Name() string {
 	return "CW"
 }
 
-func (this *CW) Fit(x *[][]Feature, y *[]int) {
+func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
 
+		for name, _ := range xi {
+			if !this.FtDict.HasElem(name) {
+				this.FtDict.AddElem(name)
+			}
+		}
+		if !this.LabelDict.HasElem(yi) {
+			this.LabelDict.AddElem(yi)
+		}
+		tid := this.LabelDict.Elem2id[yi]
+
 		/* expand label size */
-		if len(this.Weight) <= yi {
-			for k := len(this.Weight); k <= yi; k++ {
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
-		if len(this.diag) <= yi {
-			for k := len(this.diag); k <= yi; k++ {
+
+		if len(this.diag) <= tid {
+			for k := len(this.diag); k <= tid; k++ {
 				this.diag = append(this.diag, make([]float64, 0, 10000))
 			}
 		}
@@ -301,31 +346,32 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 		max := math.Inf(-1)
 		margins := make([]float64, len(this.Weight), len(this.Weight))
 
-		for labelid := 0; labelid < len(this.Weight); labelid++ {
-			w := &this.Weight[labelid]
-			d := &this.diag[labelid]
+		for yid := 0; yid < len(this.Weight); yid++ {
+			w := &this.Weight[yid]
+			d := &this.diag[yid]
 			dot := 0.
-			for _, ft := range xi {
+			for ft, val := range xi {
+				ftid := this.FtDict.Elem2id[ft]
 
 				/* expand feature size */
-				if len(*w) <= ft.Id {
-					for k := len(*w); k <= ft.Id; k++ {
+				if len(*w) <= ftid {
+					for k := len(*w); k <= ftid; k++ {
 						*w = append(*w, 0.)
 					}
 				}
-				if len(*d) <= ft.Id {
-					for k := len(*d); k <= ft.Id; k++ {
+				if len(*d) <= ftid {
+					for k := len(*d); k <= ftid; k++ {
 						*d = append((*d), 1.*this.a)
 					}
 				}
 
-				dot += (*w)[ft.Id] * ft.Val
+				dot += (*w)[ftid] * val
 			}
 			if max < dot {
 				max = dot
-				argmax = labelid
+				argmax = yid
 			}
-			margins[labelid] = dot
+			margins[yid] = dot
 		}
 		if argmax == -1 {
 			fmt.Println(max, argmax)
@@ -333,36 +379,41 @@ func (this *CW) Fit(x *[][]Feature, y *[]int) {
 		}
 
 		/* update parameters of true label */
-		M := margins[yi]
-		_diag := &this.diag[yi]
+		M := margins[tid]
+		_diag := &this.diag[tid]
 		V := 0.
-		for _, ft := range xi {
-			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			V += val * val * (*_diag)[ftid]
 		}
 		_n := 1. + 2.*this.phi*M
 		sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
 		gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
 		alpha := Max(0., gamma)
 		beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
-		for _, ft := range xi {
-			this.Weight[yi][ft.Id] += alpha * (*_diag)[ft.Id] * ft.Val
-			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
+			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
 		}
 
 		/* update parameters of predicted label */
+		M = margins[argmax]
 		_diag = &this.diag[argmax]
 		V = 0.
-		for _, ft := range xi {
-			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			V += val * val * (*_diag)[ftid]
 		}
 		_n = 1. + 2.*this.phi*M
 		sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
 		gamma = (-1.*_n + sqrt) / (4. * this.phi * V)
 		alpha = Max(0., gamma)
 		beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
-		for _, ft := range xi {
-			this.Weight[argmax][ft.Id] -= alpha * (*_diag)[ft.Id] * ft.Val
-			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
+			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
 		}
 	}
 }
@@ -379,6 +430,8 @@ type Arow struct {
 
 func NewArow(gamma float64) *Arow {
 	arow := Arow{&Learner{}, 1., gamma, make([][]float64, 0, 100)}
+	arow.FtDict = NewDict()
+	arow.LabelDict = NewDict()
 	return &arow
 }
 
@@ -386,19 +439,34 @@ func (this *Arow) Name() string {
 	return "AROW"
 }
 
-func (this *Arow) Fit(x *[][]Feature, y *[]int) {
+func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
 
-		/* expand label size */
-		if len(this.Weight) <= yi {
-			for k := len(this.Weight); k <= yi; k++ {
+		for name, _ := range xi {
+			if !this.FtDict.HasElem(name) {
+				this.FtDict.AddElem(name)
+			}
+		}
+		if !this.LabelDict.HasElem(yi) {
+			this.LabelDict.AddElem(yi)
+		}
+		tid := this.LabelDict.Elem2id[yi]
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
-		if len(this.diag) <= yi {
-			for k := len(this.diag); k <= yi; k++ {
+
+		/* expand label size */
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
+			}
+		}
+		if len(this.diag) <= tid {
+			for k := len(this.diag); k <= tid; k++ {
 				this.diag = append(this.diag, make([]float64, 0, 10000))
 			}
 		}
@@ -406,31 +474,32 @@ func (this *Arow) Fit(x *[][]Feature, y *[]int) {
 		argmax := -1
 		max := math.Inf(-1)
 		margins := make([]float64, len(this.Weight), len(this.Weight))
-		for labelid := 0; labelid < len(this.Weight); labelid++ {
-			w := &this.Weight[labelid]
-			d := &this.diag[labelid]
+		for yid := 0; yid < len(this.Weight); yid++ {
+			w := &this.Weight[yid]
+			d := &this.diag[yid]
 			dot := 0.
-			for _, ft := range xi {
+			for ft, val := range xi {
+				ftid := this.FtDict.Elem2id[ft]
 
 				/* expand feature size */
-				if len(*w) <= ft.Id {
-					for k := len(*w); k <= ft.Id; k++ {
+				if len(*w) <= ftid {
+					for k := len(*w); k <= ftid; k++ {
 						*w = append(*w, 0.)
 					}
 				}
-				if len(*d) <= ft.Id {
-					for k := len(*d); k <= ft.Id; k++ {
+				if len(*d) <= ftid {
+					for k := len(*d); k <= ftid; k++ {
 						*d = append(*d, 1.*this.a)
 					}
 				}
 
-				dot += (*w)[ft.Id] * ft.Val
+				dot += (*w)[ftid] * val
 			}
 			if max < dot {
 				max = dot
-				argmax = labelid
+				argmax = yid
 			}
-			margins[labelid] = dot
+			margins[yid] = dot
 		}
 		if argmax == -1 {
 			fmt.Println(max, argmax)
@@ -438,30 +507,34 @@ func (this *Arow) Fit(x *[][]Feature, y *[]int) {
 		}
 
 		/* update parameters of true label */
-		loss := Max(0., 1.+margins[argmax]-margins[yi])
-		_diag := &this.diag[yi]
+		loss := Max(0., 1.+margins[argmax]-margins[tid])
+		_diag := &this.diag[tid]
 		V := 0.
-		for _, ft := range xi {
-			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			V += val * val * (*_diag)[ftid]
 		}
 		beta := 1. / (V + this.gamma)
 		alpha := loss * beta
-		for _, ft := range xi {
-			this.Weight[yi][ft.Id] += alpha * (*_diag)[ft.Id] * ft.Val
-			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
+			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
 		}
 
 		/* update parameters of predicted label */
 		_diag = &this.diag[argmax]
 		V = 0.
-		for _, ft := range xi {
-			V += ft.Val * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			V += val * val * (*_diag)[ftid]
 		}
 		beta = 1. / (V + this.gamma)
 		alpha = loss * beta
-		for _, ft := range xi {
-			this.Weight[argmax][ft.Id] -= alpha * (*_diag)[ft.Id] * ft.Val
-			(*_diag)[ft.Id] -= (*_diag)[ft.Id] * ft.Val * beta * ft.Val * (*_diag)[ft.Id]
+		for ft, val := range xi {
+			ftid := this.FtDict.Elem2id[ft]
+			this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
+			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
 		}
 	}
 }

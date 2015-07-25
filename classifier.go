@@ -9,21 +9,33 @@ import (
 )
 
 type Classifier struct {
-	Weight [][]float64
+	Weight    [][]float64
+	FtDict    Dict
+	LabelDict Dict
 }
 
-func (this *Classifier) Predict(x *[]Feature) int {
+func NewClassifier() Classifier {
+	c := Classifier{
+		Weight:    make([][]float64, 0, 100),
+		FtDict:    NewDict(),
+		LabelDict: NewDict(),
+	}
+	return c
+}
+
+func (this *Classifier) Predict(x *map[string]float64) int {
 	argmax := -1
 	max := math.Inf(-1)
 
 	for labelid := 0; labelid < len(this.Weight); labelid++ {
 		dot := 0.
 		w := this.Weight[labelid]
-		for _, ft := range *x {
-			if ft.Id >= len(w) {
+		for ft, val := range *x {
+			ftid := this.FtDict.Elem2id[ft]
+			if ftid >= len(w) {
 				continue
 			}
-			dot += w[ft.Id] * ft.Val
+			dot += w[ftid] * val
 		}
 		if dot > max {
 			max = dot
@@ -33,14 +45,12 @@ func (this *Classifier) Predict(x *[]Feature) int {
 	return argmax
 }
 
-func LoadClassifier(fname string, ftdict, labeldict *Dict) Classifier {
+func LoadClassifier(fname string) Classifier {
+	cls := NewClassifier()
 	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
 	if err != nil {
 		panic("Failed to load model")
 	}
-	var (
-		cls Classifier
-	)
 	reader := bufio.NewReaderSize(model_f, 4096*32)
 	line, err := reader.ReadString('\n')
 	if err != nil {
@@ -52,11 +62,11 @@ func LoadClassifier(fname string, ftdict, labeldict *Dict) Classifier {
 	ftsize, _ := strconv.Atoi(strings.Trim(strings.Split(line, "\t")[1], "\n"))
 	for i := 0; i < labelsize; i++ {
 		line, err = reader.ReadString('\n')
-		(*labeldict).AddElem(strings.Trim(line, "\n"))
+		cls.LabelDict.AddElem(strings.Trim(line, "\n"))
 	}
 	for i := 0; i < ftsize; i++ {
 		line, err = reader.ReadString('\n')
-		(*ftdict).AddElem(strings.Trim(line, "\n"))
+		cls.FtDict.AddElem(strings.Trim(line, "\n"))
 	}
 
 	cls.Weight = make([][]float64, labelsize, labelsize)
@@ -69,6 +79,5 @@ func LoadClassifier(fname string, ftdict, labeldict *Dict) Classifier {
 			cls.Weight[labelid][ftid] = w
 		}
 	}
-
 	return cls
 }
