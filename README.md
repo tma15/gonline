@@ -7,6 +7,11 @@ Install
 ==
 ```
 $go get github.com/tma15/gonline
+```
+
+Build
+==
+```
 $cd $GOPATH/src/github.com/tma15/gonline/gonline
 $go build
 ```
@@ -34,16 +39,21 @@ To train learner by AROW algorithm:
 $wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/news20.scale.bz2
 $wget http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/news20.t.scale.bz2
 $bunzip2 news20.scale.bz2 news20.t.scale.bz2
-$./gonline train -a arow -m model -i 7 -t ./news20.t.scale ./news20.scale
-algorithm: arow
+$time ./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle ./news20.scale
+algorithm: AROW
 testfile ./news20.t.scale
-epoch:1 test accuracy: 0.770098 (3075/3993)
-epoch:2 test accuracy: 0.795893 (3178/3993)
-epoch:3 test accuracy: 0.802905 (3206/3993)
-epoch:4 test accuracy: 0.804408 (3212/3993)
-epoch:5 test accuracy: 0.800902 (3198/3993)
-epoch:6 test accuracy: 0.800651 (3197/3993)
-epoch:7 test accuracy: 0.803907 (3210/3993)
+training data will not be shuffled
+epoch:1 test accuracy: 0.782870 (3126/3993)
+epoch:2 test accuracy: 0.798147 (3187/3993)
+epoch:3 test accuracy: 0.797646 (3185/3993)
+epoch:4 test accuracy: 0.801402 (3200/3993)
+epoch:5 test accuracy: 0.802655 (3205/3993)
+epoch:6 test accuracy: 0.804909 (3214/3993)
+epoch:7 test accuracy: 0.805910 (3218/3993)
+epoch:8 test accuracy: 0.806411 (3220/3993)
+epoch:9 test accuracy: 0.807663 (3225/3993)
+epoch:10 test accuracy: 0.807663 (3225/3993)
+./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle   69.32s user 1.24s system 98% cpu 1:11.43 total
 ```
 
 You can see more command options using help option:
@@ -56,10 +66,11 @@ Usage of train:
   -algorithm="": algorithm for training {p, pa, pa1, pa2, cw, arow}
   -eta=0.8: confidence parameter for Confidence Weighted
   -g=10: regularization parameter for AROW
-  -i=1: iteration number
-  -m="": model filename
-  -model="": model filename
-  -t="": test file
+  -i=1: number of iterations
+  -m="": file name of model
+  -model="": file name of model
+  -t="": file name of test data
+  -withoutshuffle=false: doesn't shuffle the training data
 ```
 
 Template command of testing:

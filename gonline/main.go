@@ -10,25 +10,27 @@ import (
 
 func train(args []string) {
 	var (
-		model     string
-		algorithm string
-		eta       float64
-		gamma     float64
-		C         float64
-		loop      int
-		testfile  string
+		model           string
+		algorithm       string
+		eta             float64
+		gamma           float64
+		C               float64
+		loop            int
+		testfile        string
+		without_shuffle bool
 	)
 
 	fs := flag.NewFlagSet("train", flag.ExitOnError)
-	fs.StringVar(&model, "model", "", "model filename")
-	fs.StringVar(&model, "m", "", "model filename")
-	fs.StringVar(&testfile, "t", "", "test file")
+	fs.StringVar(&model, "model", "", "file name of model")
+	fs.StringVar(&model, "m", "", "file name of model")
+	fs.StringVar(&testfile, "t", "", "file name of test data")
 	fs.StringVar(&algorithm, "algorithm", "", "algorithm for training {p, pa, pa1, pa2, cw, arow}")
 	fs.StringVar(&algorithm, "a", "", "algorithm for training {p, pa, pa1, pa2, cw, arow}")
 	fs.Float64Var(&eta, "eta", 0.8, "confidence parameter for Confidence Weighted")
 	fs.Float64Var(&gamma, "g", 10., "regularization parameter for AROW")
 	fs.Float64Var(&C, "C", 0.01, "degree of aggressiveness for PA-I and PA-II")
-	fs.IntVar(&loop, "i", 1, "iteration number")
+	fs.IntVar(&loop, "i", 1, "number of iterations")
+	fs.BoolVar(&without_shuffle, "withoutshuffle", false, "doesn't shuffle the training data")
 	fs.Parse(args)
 
 	var (
@@ -39,7 +41,6 @@ func train(args []string) {
 		y_test  *[]string
 	)
 
-	fmt.Println("algorithm:", algorithm)
 	switch algorithm {
 	case "p":
 		learner = gonline.NewPerceptron()
@@ -57,15 +58,23 @@ func train(args []string) {
 		panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
 	}
 
+	fmt.Println("algorithm:", learner.Name())
 	if testfile != "" {
 		fmt.Println("testfile", testfile)
 		x_test, y_test = gonline.LoadData(testfile)
+	}
+	if without_shuffle {
+		fmt.Println("training data will not be shuffled")
+	} else {
+		fmt.Println("training data will be shuffled")
 	}
 
 	for i := 0; i < loop; i++ {
 		for _, trainfile := range fs.Args() {
 			x_train, y_train = gonline.LoadData(trainfile)
-			gonline.ShuffleData(x_train, y_train)
+			if !without_shuffle {
+				gonline.ShuffleData(x_train, y_train)
+			}
 			learner.Fit(x_train, y_train)
 			if testfile != "" {
 				numCorr := 0

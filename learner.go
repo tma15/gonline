@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 )
 
 type Dict struct {
@@ -34,6 +35,7 @@ func (this *Dict) AddElem(elem string) {
 
 type LearnerInterface interface {
 	Name() string
+	updateDict(*[]string, *string)
 	Fit(*[]map[string]float64, *[]string)
 	Save(string)
 	GetParam() *[][]float64
@@ -46,6 +48,17 @@ type Learner struct {
 	Weight    [][]float64
 	FtDict    Dict
 	LabelDict Dict
+}
+
+func (this *Learner) updateDict(features *[]string, label *string) {
+	for _, name := range *features {
+		if !this.FtDict.HasElem(name) {
+			this.FtDict.AddElem(name)
+		}
+	}
+	if !this.LabelDict.HasElem(*label) {
+		this.LabelDict.AddElem(*label)
+	}
 }
 
 func (this *Learner) Name() string {
@@ -63,20 +76,20 @@ func (this *Learner) Save(fname string) {
 	}
 	writer := bufio.NewWriterSize(fp, 4096*32)
 	labelsize := len(this.LabelDict.Id2elem)
-	ftsize := len(this.FtDict.Id2elem)
+	featuresize := len(this.FtDict.Id2elem)
 	writer.WriteString(fmt.Sprintf("labelsize\t%d\n", labelsize))
-	writer.WriteString(fmt.Sprintf("featuresize\t%d\n", ftsize))
+	writer.WriteString(fmt.Sprintf("featuresize\t%d\n", featuresize))
 	for i := 0; i < labelsize; i++ {
 		label := this.LabelDict.Id2elem[i]
 		writer.WriteString(fmt.Sprintf("%s\n", label))
 	}
-	for i := 0; i < ftsize; i++ {
+	for i := 0; i < featuresize; i++ {
 		ft := this.FtDict.Id2elem[i]
 		writer.WriteString(fmt.Sprintf("%s\n", ft))
 	}
 	for labelid := 0; labelid < labelsize; labelid++ {
 		w := this.Weight[labelid]
-		for ftid := 0; ftid < ftsize; ftid++ {
+		for ftid := 0; ftid < featuresize; ftid++ {
 			writer.WriteString(fmt.Sprintf("%f\n", w[ftid]))
 		}
 	}
@@ -120,15 +133,9 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
+		features := GetSortedFeatures(&xi)
+		this.updateDict(&features, &yi)
 
-		for name, _ := range xi {
-			if !this.FtDict.HasElem(name) {
-				this.FtDict.AddElem(name)
-			}
-		}
-		if !this.LabelDict.HasElem(yi) {
-			this.LabelDict.AddElem(yi)
-		}
 		tid := this.LabelDict.Elem2id[yi]
 		if len(this.Weight) <= tid {
 			for k := len(this.Weight); k <= tid; k++ {
@@ -141,7 +148,8 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
 			dot := 0.
-			for ft, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				ftid := this.FtDict.Elem2id[ft]
 
 				/* expand feature size */
@@ -161,7 +169,8 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 		}
 
 		if argmax != tid {
-			for ft, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				ftid := this.FtDict.Elem2id[ft]
 				this.Weight[tid][ftid] += val
 				this.Weight[argmax][ftid] -= val
@@ -205,21 +214,9 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
-
-		for name, _ := range xi {
-			if !this.FtDict.HasElem(name) {
-				this.FtDict.AddElem(name)
-			}
-		}
-		if !this.LabelDict.HasElem(yi) {
-			this.LabelDict.AddElem(yi)
-		}
+		features := GetSortedFeatures(&xi)
+		this.updateDict(&features, &yi)
 		tid := this.LabelDict.Elem2id[yi]
-		if len(this.Weight) <= tid {
-			for k := len(this.Weight); k <= tid; k++ {
-				this.Weight = append(this.Weight, make([]float64, 0, 10000))
-			}
-		}
 
 		/* expand label size */
 		if len(this.Weight) <= tid {
@@ -234,7 +231,8 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
 			dot := 0.
-			for ft, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				ftid := this.FtDict.Elem2id[ft]
 				/* expand feature size */
 				if len(*w) <= ftid {
@@ -242,7 +240,6 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 						*w = append(*w, 0.)
 					}
 				}
-
 				dot += (*w)[ftid] * val
 			}
 
@@ -254,11 +251,13 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 
 		if argmax != tid {
 			norm := 0.
-			for _, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				norm += val * val
 			}
 			tau := this.Tau(max, norm, this.C)
-			for ft, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				ftid := this.FtDict.Elem2id[ft]
 				this.Weight[tid][ftid] += tau * val
 				this.Weight[argmax][ftid] -= tau * val
@@ -308,15 +307,9 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
+		features := GetSortedFeatures(&xi)
+		this.updateDict(&features, &yi)
 
-		for name, _ := range xi {
-			if !this.FtDict.HasElem(name) {
-				this.FtDict.AddElem(name)
-			}
-		}
-		if !this.LabelDict.HasElem(yi) {
-			this.LabelDict.AddElem(yi)
-		}
 		tid := this.LabelDict.Elem2id[yi]
 
 		/* expand label size */
@@ -340,7 +333,8 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 			w := &this.Weight[yid]
 			d := &this.diag[yid]
 			dot := 0.
-			for ft, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				ftid := this.FtDict.Elem2id[ft]
 
 				/* expand feature size */
@@ -372,7 +366,8 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 		M := margins[tid]
 		_diag := &this.diag[tid]
 		V := 0.
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			V += val * val * (*_diag)[ftid]
 		}
@@ -381,7 +376,8 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 		gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
 		alpha := Max(0., gamma)
 		beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
 			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
@@ -391,7 +387,8 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 		M = margins[argmax]
 		_diag = &this.diag[argmax]
 		V = 0.
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			V += val * val * (*_diag)[ftid]
 		}
@@ -400,7 +397,8 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 		gamma = (-1.*_n + sqrt) / (4. * this.phi * V)
 		alpha = Max(0., gamma)
 		beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
 			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
@@ -433,21 +431,10 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
+		features := GetSortedFeatures(&xi)
+		this.updateDict(&features, &yi)
 
-		for name, _ := range xi {
-			if !this.FtDict.HasElem(name) {
-				this.FtDict.AddElem(name)
-			}
-		}
-		if !this.LabelDict.HasElem(yi) {
-			this.LabelDict.AddElem(yi)
-		}
 		tid := this.LabelDict.Elem2id[yi]
-		if len(this.Weight) <= tid {
-			for k := len(this.Weight); k <= tid; k++ {
-				this.Weight = append(this.Weight, make([]float64, 0, 10000))
-			}
-		}
 
 		/* expand label size */
 		if len(this.Weight) <= tid {
@@ -468,7 +455,8 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 			w := &this.Weight[yid]
 			d := &this.diag[yid]
 			dot := 0.
-			for ft, val := range xi {
+			for _, ft := range features {
+				val := xi[ft]
 				ftid := this.FtDict.Elem2id[ft]
 
 				/* expand feature size */
@@ -500,28 +488,37 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 		loss := Max(0., 1.+margins[argmax]-margins[tid])
 		_diag := &this.diag[tid]
 		V := 0.
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			V += val * val * (*_diag)[ftid]
 		}
 		beta := 1. / (V + this.gamma)
 		alpha := loss * beta
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
+			if len(this.Weight) <= tid {
+				for k := len(this.Weight); k <= tid; k++ {
+					this.Weight = append(this.Weight, make([]float64, 0, 10000))
+				}
+			}
 			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
 		}
 
 		/* update parameters of predicted label */
 		_diag = &this.diag[argmax]
 		V = 0.
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			V += val * val * (*_diag)[ftid]
 		}
 		beta = 1. / (V + this.gamma)
 		alpha = loss * beta
-		for ft, val := range xi {
+		for _, ft := range features {
+			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
 			this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
 			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
@@ -548,4 +545,15 @@ func Max(x, y float64) float64 {
 	} else {
 		return y
 	}
+}
+
+func GetSortedFeatures(x *map[string]float64) []string {
+	features := make([]string, len(*x), len(*x))
+	k := 0
+	for name, _ := range *x {
+		features[k] = name
+		k++
+	}
+	sort.Strings(features)
+	return features
 }
