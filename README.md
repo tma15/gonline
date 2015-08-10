@@ -3,13 +3,13 @@ gonline
 ==
 A library of online machine learning algorithms written in golang.
 
-Install
+How to Install
 ==
 ```
 $go get github.com/tma15/gonline
 ```
 
-Build
+How to Build
 ==
 ```
 $cd $GOPATH/src/github.com/tma15/gonline/gonline
@@ -82,7 +82,7 @@ To evaluate learner:
 
 ```
 $./gonline test -m model news20.t.scale
-test accuracy: 0.803907 (3210/3993)
+test accuracy: 0.807663 (3225/3993)
 ```
 
 Data Format
