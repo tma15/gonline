@@ -32,16 +32,6 @@ func (this *Dict) AddElem(elem string) {
 	this.Id2elem = append(this.Id2elem, elem)
 }
 
-// type Feature struct {
-//     Id    int
-//     Val   float64
-//     Label string
-// }
-
-// func NewFeature(id int, val float64, label string) Feature {
-//     return Feature{Id: id, Val: val, Label: label}
-// }
-
 type LearnerInterface interface {
 	Name() string
 	Fit(*[]map[string]float64, *[]string)
