@@ -1,12 +1,14 @@
 ==
-Go Online Learner
+gonline
 ==
 A library of online machine learning algorithms written in golang.
 
 Install
 ==
 ```
-go get github.com/tma15/gonline
+$go get github.com/tma15/gonline
+$cd $GOPATH/src/github.com/tma15/gonline/gonline
+$go build
 ```
 
 Supported Algorithms
@@ -18,7 +20,7 @@ Supported Algorithms
 - Confidence Weighted (cw)
 - AROW (arow)
 
-Characters in parentheses are option arguments for `gonline train`.
+Characters in parentheses are option arguments for `-a` of `gonline train`.
 
 Usage
 ==
@@ -81,3 +83,14 @@ The format of training and testing data is:
 ```
 
 Feature names such as `<feature1>` and `<feature2>` could be strings besides on integers. For example, words such as `soccer` and `baseball` can be used as `<feature1>` in text classification setting.
+
+References
+==
+- Koby Crammer, Ofer Dekel, Joseph Keshet, Shai Shalev-Shwartz and Yoram Singer. "Online Passive-Aggressive Algorithms". JMLR. 2006.
+- Mark Dredze, Koby Crammer and Fernando Pereira. "Confidence-Weighted Linear Classification". ICML. 2008.
+- Koby Crammer, Mark Dredze and Alex Kulesza. "Multi-Class Confidence Weighted Algorithms". EMNLP. 2009.
+- Koby Crammer, Alex Kulesza and Mark Dredze. "Adaptive Regularization of Weight Vectors". NIPS. 2009.
+
+Licence
+==
+This software is released under the MIT License, see LICENSE.txt.
