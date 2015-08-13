@@ -27,6 +27,7 @@ Supported Algorithms
 
 Characters in parentheses are option arguments for `-a` of `gonline train`.
 
+
 Usage
 ==
 Template command of training:
@@ -85,6 +86,33 @@ $./gonline test -m model news20.t.scale
 test accuracy: 0.807663 (3225/3993)
 ```
 
+Benchmark
+==
+For all algorithms which are supported by `gonline`, fitting 1 iteration on training data `news.scale`, then predicting test data `news.t.scale`. Training data don't be shuffled. Default values are used as hyper parameters.
+
+|algorithm|accuracy|
+|---------|--------|
+|Perceptron|0.758327|
+|Passive Agressive|0.745805|
+|Passive Aggresive I|0.758327|
+|Passive Aggesive II|0.757576|
+|Confidence Weighted|0.784874|
+|AROW|0.782870|
+
+Evaluation is conducted using following command:
+```
+$./gonline train -a <ALGORITHM> -m model -i 1 -t ./news20.t.scale -withoutshuffle ./news20.scale
+```
+
+Accuracy of SVMs with linear kernel:
+```
+$svm-train -t 0 news20.scale
+$svm-predict news20.t.scale news20.scale.model out
+Accuracy = 84.022% (3355/3993) (classification)
+```
+
+TODO: Hyper parameters tuning for each algorithm using development data.
+
 Data Format
 ==
 The format of training and testing data is:
@@ -101,6 +129,7 @@ References
 - Mark Dredze, Koby Crammer and Fernando Pereira. "Confidence-Weighted Linear Classification". ICML. 2008.
 - Koby Crammer, Mark Dredze and Alex Kulesza. "Multi-Class Confidence Weighted Algorithms". EMNLP. 2009.
 - Koby Crammer, Alex Kulesza and Mark Dredze. "Adaptive Regularization of Weight Vectors". NIPS. 2009.
+- Koby Crammer, Alex Kulesza, and Mark Dredze. "Adaptive Regularization of Weight Vectors". Machine Learning. 2013.
 
 Licence
 ==
