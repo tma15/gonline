@@ -76,24 +76,24 @@ func train(args []string) {
 				gonline.ShuffleData(x_train, y_train)
 			}
 			learner.Fit(x_train, y_train)
-			if testfile != "" {
-				numCorr := 0
-				numTotal := 0
-				cls := gonline.Classifier{}
-				cls.Weight = *learner.GetParam()
-				ftdic, labeldic := learner.GetDics()
-				cls.FtDict = *ftdic
-				cls.LabelDict = *labeldic
-				for i, x_i := range *x_test {
-					j := cls.Predict(&x_i)
-					if cls.LabelDict.Id2elem[j] == (*y_test)[i] {
-						numCorr += 1
-					}
-					numTotal += 1
+		}
+		if testfile != "" {
+			numCorr := 0
+			numTotal := 0
+			cls := gonline.Classifier{}
+			cls.Weight = *learner.GetParam()
+			ftdic, labeldic := learner.GetDics()
+			cls.FtDict = *ftdic
+			cls.LabelDict = *labeldic
+			for i, x_i := range *x_test {
+				j := cls.Predict(&x_i)
+				if cls.LabelDict.Id2elem[j] == (*y_test)[i] {
+					numCorr += 1
 				}
-				acc := float64(numCorr) / float64(numTotal)
-				fmt.Printf("epoch:%d test accuracy: %f (%d/%d)\n", i+1, acc, numCorr, numTotal)
+				numTotal += 1
 			}
+			acc := float64(numCorr) / float64(numTotal)
+			fmt.Printf("epoch:%d test accuracy: %f (%d/%d)\n", i+1, acc, numCorr, numTotal)
 		}
 	}
 	learner.Save(model)
