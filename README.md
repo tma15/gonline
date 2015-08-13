@@ -97,14 +97,16 @@ For all algorithms which are supported by `gonline`, fitting 1 iteration on trai
 |Passive Aggresive I|0.758327|
 |Passive Aggesive II|0.757576|
 |Confidence Weighted|0.784874|
-|AROW|0.782870|
+|AROW (the top-1 version)|0.782870|
+|AROW (the full version)|0.859755|
 
+AROW (the top-1 version) is not supported.
 Evaluation is conducted using following command:
 ```
 $./gonline train -a <ALGORITHM> -m model -i 1 -t ./news20.t.scale -withoutshuffle ./news20.scale
 ```
 
-Accuracy of SVMs with linear kernel:
+Accuracy of SVMs with linear kernel which is supported by `libsvm`:
 ```
 $svm-train -t 0 news20.scale
 $svm-predict news20.t.scale news20.scale.model out

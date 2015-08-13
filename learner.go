@@ -365,17 +365,12 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 		/* update parameters of true label */
 		M := margins[tid]
 		_diag := &this.diag[tid]
-		V := 0.
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			V += val * val * (*_diag)[ftid]
-		}
+		Vtrue := calcConfidence(_diag, &xi, &this.FtDict)
 		_n := 1. + 2.*this.phi*M
-		sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
-		gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
+		sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*Vtrue))
+		gamma := (-1.*_n + sqrt) / (4. * this.phi * Vtrue)
 		alpha := Max(0., gamma)
-		beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
+		beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*Vtrue)
 		for _, ft := range features {
 			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
@@ -386,17 +381,12 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 		/* update parameters of predicted label */
 		M = margins[argmax]
 		_diag = &this.diag[argmax]
-		V = 0.
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			V += val * val * (*_diag)[ftid]
-		}
+		Vpred := calcConfidence(_diag, &xi, &this.FtDict)
 		_n = 1. + 2.*this.phi*M
-		sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
-		gamma = (-1.*_n + sqrt) / (4. * this.phi * V)
+		sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*Vpred))
+		gamma = (-1.*_n + sqrt) / (4. * this.phi * Vpred)
 		alpha = Max(0., gamma)
-		beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
+		beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*Vpred)
 		for _, ft := range features {
 			val := xi[ft]
 			ftid := this.FtDict.Elem2id[ft]
@@ -408,6 +398,7 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 
 /*
 - http://webee.technion.ac.il/people/koby/publications/arow_nips09.pdf
+- http://web.eecs.umich.edu/~kulesza/pubs/arow_mlj13.pdf
 */
 type Arow struct {
 	*Learner
@@ -484,51 +475,65 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 			os.Exit(1)
 		}
 
-		/* update parameters of true label */
-		loss := Max(0., 1.+margins[argmax]-margins[tid])
-		_diag := &this.diag[tid]
-		V := 0.
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			V += val * val * (*_diag)[ftid]
-		}
-		beta := 1. / (V + this.gamma)
-		alpha := loss * beta
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
-			if len(this.Weight) <= tid {
-				for k := len(this.Weight); k <= tid; k++ {
-					this.Weight = append(this.Weight, make([]float64, 0, 10000))
+		if margins[tid] < 1.+margins[argmax] {
+			/* The full version of AROW algorithm */
+			sign := 0.
+			for yid := 0; yid < len(this.Weight); yid++ {
+				if yid == tid {
+					sign = 1.
+				} else {
+					sign = -1.
+				}
+				/* update parameters */
+				_diag := &this.diag[yid]
+				V := calcConfidence(_diag, &xi, &this.FtDict)
+				beta := 1. / (V + this.gamma)
+				alpha := Max(0., 1.-sign*margins[yid]) * beta
+				if alpha == 0. {
+					continue
+				}
+				for ft, val := range xi {
+					ftid := this.FtDict.Elem2id[ft]
+					this.Weight[yid][ftid] += sign * alpha * (*_diag)[ftid] * val
+					(*_diag)[ftid] -= beta * (*_diag)[ftid] * val * val * (*_diag)[ftid]
 				}
 			}
-			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
-		}
+			/* The top-1 version of AROW algorithm */
+			//             /* update parameters of true label */
+			//             _diag := &this.diag[tid]
+			//             Vtrue := calcConfidence(_diag, &xi, &this.FtDict)
+			//             beta := 1. / (Vtrue + this.gamma)
+			//             alpha := Max(0., 1.-margins[tid]) * beta
+			//             if alpha > 0. {
+			//                 for ft, val := range xi {
+			//                     ftid := this.FtDict.Elem2id[ft]
+			//                     this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
+			//                     (*_diag)[ftid] -= beta * (*_diag)[ftid] * val * val * (*_diag)[ftid]
+			//                 }
+			//             }
 
-		/* update parameters of predicted label */
-		_diag = &this.diag[argmax]
-		V = 0.
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			V += val * val * (*_diag)[ftid]
-		}
-		beta = 1. / (V + this.gamma)
-		alpha = loss * beta
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
-			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
+			//             /* update parameters of predicted label */
+			//             _diag = &this.diag[argmax]
+			//             Vpred := calcConfidence(_diag, &xi, &this.FtDict)
+			//             beta = 1. / (Vpred + this.gamma)
+			//             alpha = Max(0., 1.+margins[argmax]) * beta
+			//             if alpha > 0. {
+			//                 for ft, val := range xi {
+			//                     ftid := this.FtDict.Elem2id[ft]
+			//                     this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
+			//                     (*_diag)[ftid] -= beta * (*_diag)[ftid] * val * val * (*_diag)[ftid]
+			//                 }
+			//             }
+			//         }
 		}
 	}
 }
 
 /* Cumulative Distribution Function for the Normal distribution */
 func Normal_CDF(mu, sigma float64) func(x float64) float64 {
-	return func(x float64) float64 { return (0.5 * (1 - math.Erf((mu-x)/(sigma*math.Sqrt2)))) }
+	return func(x float64) float64 {
+		return (0.5 * (1 - math.Erf((mu-x)/(sigma*math.Sqrt2))))
+	}
 }
 
 func Min(x, y float64) float64 {
@@ -545,6 +550,15 @@ func Max(x, y float64) float64 {
 	} else {
 		return y
 	}
+}
+
+func calcConfidence(diag *[]float64, x *map[string]float64, ftdict *Dict) float64 {
+	V := 0.
+	for ft, val := range *x {
+		ftid := (*ftdict).Elem2id[ft]
+		V += val * val * (*diag)[ftid]
+	}
+	return V
 }
 
 func GetSortedFeatures(x *map[string]float64) []string {
