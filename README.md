@@ -44,18 +44,20 @@ $time ./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle
 algorithm: AROW
 testfile ./news20.t.scale
 training data will not be shuffled
-epoch:1 test accuracy: 0.782870 (3126/3993)
-epoch:2 test accuracy: 0.798147 (3187/3993)
-epoch:3 test accuracy: 0.797646 (3185/3993)
-epoch:4 test accuracy: 0.801402 (3200/3993)
-epoch:5 test accuracy: 0.802655 (3205/3993)
-epoch:6 test accuracy: 0.804909 (3214/3993)
-epoch:7 test accuracy: 0.805910 (3218/3993)
-epoch:8 test accuracy: 0.806411 (3220/3993)
-epoch:9 test accuracy: 0.807663 (3225/3993)
-epoch:10 test accuracy: 0.807663 (3225/3993)
-./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle   69.32s user 1.24s system 98% cpu 1:11.43 total
+epoch:1 test accuracy: 0.821438 (3280/3993)
+epoch:2 test accuracy: 0.835212 (3335/3993)
+epoch:3 test accuracy: 0.842725 (3365/3993)
+epoch:4 test accuracy: 0.845980 (3378/3993)
+epoch:5 test accuracy: 0.849236 (3391/3993)
+epoch:6 test accuracy: 0.853243 (3407/3993)
+epoch:7 test accuracy: 0.854746 (3413/3993)
+epoch:8 test accuracy: 0.856749 (3421/3993)
+epoch:9 test accuracy: 0.859254 (3431/3993)
+epoch:10 test accuracy: 0.859755 (3433/3993)
+./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle   109.53s user 1.65s system 98% cpu 1:53.25 total
 ```
+
+In practice, shuffling training data can improve accuracy.
 
 You can see more command options using help option:
 
@@ -83,7 +85,7 @@ To evaluate learner:
 
 ```
 $./gonline test -m model news20.t.scale
-test accuracy: 0.807663 (3225/3993)
+test accuracy: 0.859755 (3433/3993)
 ```
 
 Benchmark
@@ -93,14 +95,14 @@ For all algorithms which are supported by `gonline`, fitting 1 iteration on trai
 |algorithm|accuracy|
 |---------|--------|
 |Perceptron|0.758327|
-|Passive Agressive|0.745805|
-|Passive Aggresive I|0.758327|
-|Passive Aggesive II|0.757576|
+|Passive Aggressive|0.745805|
+|Passive Aggressive I|0.758327|
+|Passive Aggressive II|0.757576|
 |Confidence Weighted|0.784874|
 |AROW (the top-1 version)|0.782870|
 |AROW (the full version)|0.859755|
 
-AROW (the top-1 version) is not supported.
+AROW (the top-1 version) is not supported now.
 Evaluation is conducted using following command:
 ```
 $./gonline train -a <ALGORITHM> -m model -i 1 -t ./news20.t.scale -withoutshuffle ./news20.scale
