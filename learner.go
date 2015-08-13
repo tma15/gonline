@@ -362,37 +362,62 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 			os.Exit(1)
 		}
 
-		/* update parameters of true label */
-		M := margins[tid]
-		_diag := &this.diag[tid]
-		Vtrue := calcConfidence(_diag, &xi, &this.FtDict)
-		_n := 1. + 2.*this.phi*M
-		sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*Vtrue))
-		gamma := (-1.*_n + sqrt) / (4. * this.phi * Vtrue)
-		alpha := Max(0., gamma)
-		beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*Vtrue)
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
-			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
+		/* all constrants update */
+		for yid := 0; yid < len(this.Weight); yid++ {
+			sign := 0.
+			if yid == tid {
+				sign = 1.
+			} else {
+				sign = -1.
+			}
+			M := sign * margins[yid]
+			_diag := &this.diag[yid]
+			V := calcConfidence(_diag, &xi, &this.FtDict)
+			_n := 1. + 2.*this.phi*M
+			sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
+			gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
+			alpha := Max(0., gamma)
+			beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
+			for _, ft := range features {
+				val := xi[ft]
+				ftid := this.FtDict.Elem2id[ft]
+				this.Weight[yid][ftid] += sign * alpha * (*_diag)[ftid] * val
+				(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
+			}
 		}
 
-		/* update parameters of predicted label */
-		M = margins[argmax]
-		_diag = &this.diag[argmax]
-		Vpred := calcConfidence(_diag, &xi, &this.FtDict)
-		_n = 1. + 2.*this.phi*M
-		sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*Vpred))
-		gamma = (-1.*_n + sqrt) / (4. * this.phi * Vpred)
-		alpha = Max(0., gamma)
-		beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*Vpred)
-		for _, ft := range features {
-			val := xi[ft]
-			ftid := this.FtDict.Elem2id[ft]
-			this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
-			(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
-		}
+		//         /* single constraint update */
+		/* update parameters of true label */
+		//         M := margins[tid]
+		//         _diag := &this.diag[tid]
+		//         Vtrue := calcConfidence(_diag, &xi, &this.FtDict)
+		//         _n := 1. + 2.*this.phi*M
+		//         sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*Vtrue))
+		//         gamma := (-1.*_n + sqrt) / (4. * this.phi * Vtrue)
+		//         alpha := Max(0., gamma)
+		//         beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*Vtrue)
+		//         for _, ft := range features {
+		//             val := xi[ft]
+		//             ftid := this.FtDict.Elem2id[ft]
+		//             this.Weight[tid][ftid] += alpha * (*_diag)[ftid] * val
+		//             (*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
+		//         }
+
+		//         /* update parameters of predicted label */
+		//         M = margins[argmax]
+		//         _diag = &this.diag[argmax]
+		//         Vpred := calcConfidence(_diag, &xi, &this.FtDict)
+		//         _n = 1. + 2.*this.phi*M
+		//         sqrt = math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*Vpred))
+		//         gamma = (-1.*_n + sqrt) / (4. * this.phi * Vpred)
+		//         alpha = Max(0., gamma)
+		//         beta = 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*Vpred)
+		//         for _, ft := range features {
+		//             val := xi[ft]
+		//             ftid := this.FtDict.Elem2id[ft]
+		//             this.Weight[argmax][ftid] -= alpha * (*_diag)[ftid] * val
+		//             (*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
+		//         }
 	}
 }
 

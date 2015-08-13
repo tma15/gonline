@@ -94,15 +94,13 @@ For all algorithms which are supported by `gonline`, fitting 1 iteration on trai
 
 |algorithm|accuracy|
 |---------|--------|
-|Perceptron|0.758327|
-|Passive Aggressive|0.745805|
-|Passive Aggressive I|0.758327|
-|Passive Aggressive II|0.757576|
-|Confidence Weighted|0.784874|
-|AROW (the top-1 version)|0.782870|
+|Perceptron|0.778613|
+|Passive Aggressive|0.772101|
+|Passive Aggressive I|0.792136|
+|Passive Aggressive II|0.782870|
+|Confidence Weighted (many-constraints update where k=∞)|0.852241|
 |AROW (the full version)|0.859755|
 
-AROW (the top-1 version) is not supported now.
 Evaluation is conducted using following command:
 ```
 $./gonline train -a <ALGORITHM> -m model -i 1 -t ./news20.t.scale -withoutshuffle ./news20.scale
