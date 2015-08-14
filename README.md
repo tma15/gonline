@@ -90,7 +90,7 @@ test accuracy: 0.859755 (3433/3993)
 
 Benchmark
 ==
-For all algorithms which are supported by `gonline`, fitting 1 iteration on training data `news.scale`, then predicting test data `news.t.scale`. Training data don't be shuffled. Default values are used as hyper parameters.
+For all algorithms which are supported by `gonline`, fitting 10 iterations on training data `news.scale`, then predicting test data `news.t.scale`. Training data don't be shuffled. Default values are used as hyper parameters.
 
 |algorithm|accuracy|
 |---------|--------|
@@ -103,7 +103,7 @@ For all algorithms which are supported by `gonline`, fitting 1 iteration on trai
 
 Evaluation is conducted using following command:
 ```
-$./gonline train -a <ALGORITHM> -m model -i 1 -t ./news20.t.scale -withoutshuffle ./news20.scale
+$./gonline train -a <ALGORITHM> -m model -i 10 -t ./news20.t.scale -withoutshuffle ./news20.scale
 ```
 
 Accuracy of SVMs with linear kernel which is supported by `libsvm`:
@@ -113,7 +113,7 @@ $svm-predict news20.t.scale news20.scale.model out
 Accuracy = 84.022% (3355/3993) (classification)
 ```
 
-TODO: Hyper parameters tuning for each algorithm using development data.
+TODO: Tuning hyper parameters for each algorithm using development data.
 
 Data Format
 ==
@@ -133,6 +133,6 @@ References
 - Koby Crammer, Alex Kulesza and Mark Dredze. "Adaptive Regularization of Weight Vectors". NIPS. 2009.
 - Koby Crammer, Alex Kulesza, and Mark Dredze. "Adaptive Regularization of Weight Vectors". Machine Learning. 2013.
 
-Licence
+License
 ==
 This software is released under the MIT License, see LICENSE.txt.
