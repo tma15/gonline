@@ -2,6 +2,7 @@ package gonline
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -51,6 +52,7 @@ func LoadData(fname string) (*[]map[string]float64, *[]string) {
 		panic(err)
 	}
 	reader := bufio.NewReaderSize(fp, 4096*64)
+	lid := 0
 	for {
 		line, _, err := reader.ReadLine()
 		if err == io.EOF {
@@ -58,7 +60,14 @@ func LoadData(fname string) (*[]map[string]float64, *[]string) {
 		} else if err != nil {
 			panic(err)
 		}
+		if strings.HasPrefix(string(line), "#") {
+			continue /* ignore comment */
+		}
 		fv := strings.SplitN(string(line), " ", 2)
+		if len(fv) != 2 {
+			fmt.Println(fmt.Sprintf("line:%d has no features. This line is ignored.", lid))
+			continue
+		}
 		label_i := fv[0]
 
 		features := strings.Split(strings.Trim(fv[1], " "), " ")
@@ -78,6 +87,7 @@ func LoadData(fname string) (*[]map[string]float64, *[]string) {
 		}
 		x = append(x, x_i)
 		y = append(y, label_i)
+		lid++
 	}
 	return &x, &y
 }
