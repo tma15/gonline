@@ -31,10 +31,10 @@ func (this *Classifier) Predict(x *map[string]float64) int {
 		dot := 0.
 		w := this.Weight[labelid]
 		for ft, val := range *x {
-			ftid := this.FtDict.Elem2id[ft]
-			if ftid >= len(w) {
+			if !this.FtDict.HasElem(ft) {
 				continue
 			}
+			ftid := this.FtDict.Elem2id[ft]
 			dot += w[ftid] * val
 		}
 		if dot > max {
