@@ -72,4 +72,8 @@ func TestPredict(t *testing.T) {
 	if cls.Predict(&x) != 1 {
 		t.Error("Invalid predicted labelid")
 	}
+
+	topn, margins := cls.PredictTopN(&x, 2)
+	fmt.Println("topn", topn)
+	fmt.Println("margins", margins)
 }

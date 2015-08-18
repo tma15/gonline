@@ -4,9 +4,33 @@ import (
 	"bufio"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
+
+type Margin struct {
+	Id  int
+	Val float64
+}
+
+type Margins []Margin
+
+func (this Margins) Len() int {
+	return len(this)
+}
+
+func (this Margins) Less(i, j int) bool {
+	if this[i].Val < this[j].Val {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (this Margins) Swap(i, j int) {
+	this[i], this[j] = this[j], this[i]
+}
 
 type Classifier struct {
 	Weight    [][]float64
@@ -43,6 +67,34 @@ func (this *Classifier) Predict(x *map[string]float64) int {
 		}
 	}
 	return argmax
+}
+
+func (this *Classifier) PredictTopN(x *map[string]float64, n int) ([]int, []float64) {
+	margins := Margins{}
+
+	for labelid := 0; labelid < len(this.Weight); labelid++ {
+		dot := 0.
+		w := this.Weight[labelid]
+		for ft, val := range *x {
+			if !this.FtDict.HasElem(ft) {
+				continue
+			}
+			ftid := this.FtDict.Elem2id[ft]
+			dot += w[ftid] * val
+		}
+		margins = append(margins, Margin{Id: labelid, Val: dot})
+	}
+	sort.Sort(sort.Reverse(margins))
+	topn := make([]int, n, n)
+	topnmargins := make([]float64, n, n)
+	i := 0
+	for _, m := range margins {
+		topn[i] = m.Id
+		topnmargins[i] = m.Val
+		i++
+	}
+	return topn, topnmargins
+
 }
 
 func LoadClassifier(fname string) Classifier {
