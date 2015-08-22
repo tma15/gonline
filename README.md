@@ -59,6 +59,13 @@ epoch:10 test accuracy: 0.859755 (3433/3993)
 
 In practice, shuffling training data can improve accuracy.
 
+If your environment is multi-core CPU, you can make training faster than single core CPU using the following command:
+```
+time ./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle -p 4 -s ipm ./news20.scale
+```
+
+where `-s` is training strategy and `ipm` for `-s` means using Iterative Parameter Mixture for training. `-p` is number of using cores for training.
+
 You can see more command options using help option:
 
 ```
@@ -72,6 +79,8 @@ Usage of train:
   -i=1: number of iterations
   -m="": file name of model
   -model="": file name of model
+  -p=4: number of cores for ipm (Iterative Prameter Mixture)
+  -s="": training strategy {ipm}; default is training with single core
   -t="": file name of test data
   -withoutshuffle=false: doesn't shuffle the training data
 ```
@@ -128,10 +137,11 @@ Feature names such as `<feature1>` and `<feature2>` could be strings besides on 
 References
 ==
 - Koby Crammer, Ofer Dekel, Joseph Keshet, Shai Shalev-Shwartz and Yoram Singer. "Online Passive-Aggressive Algorithms". JMLR. 2006.
-- Mark Dredze, Koby Crammer and Fernando Pereira. "Confidence-Weighted Linear Classification". ICML. 2008.
-- Koby Crammer, Mark Dredze and Alex Kulesza. "Multi-Class Confidence Weighted Algorithms". EMNLP. 2009.
-- Koby Crammer, Alex Kulesza and Mark Dredze. "Adaptive Regularization of Weight Vectors". NIPS. 2009.
+- Mark Dredze, Koby Crammer, and Fernando Pereira. "Confidence-Weighted Linear Classification". ICML. 2008.
+- Koby Crammer, Mark Dredze, and Alex Kulesza. "Multi-Class Confidence Weighted Algorithms". EMNLP. 2009.
+- Koby Crammer, Alex Kulesza, and Mark Dredze. "Adaptive Regularization of Weight Vectors". NIPS. 2009.
 - Koby Crammer, Alex Kulesza, and Mark Dredze. "Adaptive Regularization of Weight Vectors". Machine Learning. 2013.
+- Ryan McDonald, Keith Hall, and Gideon Mann. "Distributed Training Strategies for the Structured Perceptron". NAACL. 2010.
 
 License
 ==

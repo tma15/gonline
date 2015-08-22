@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tma15/gonline"
 	"os"
+	"runtime"
 	"runtime/pprof"
 )
 
@@ -16,7 +17,9 @@ func train(args []string) {
 		gamma           float64
 		C               float64
 		loop            int
+		numCpu          int
 		testfile        string
+		trainStrategy   string
 		without_shuffle bool
 	)
 
@@ -26,10 +29,12 @@ func train(args []string) {
 	fs.StringVar(&testfile, "t", "", "file name of test data")
 	fs.StringVar(&algorithm, "algorithm", "", "algorithm for training {p, pa, pa1, pa2, cw, arow}")
 	fs.StringVar(&algorithm, "a", "", "algorithm for training {p, pa, pa1, pa2, cw, arow}")
+	fs.StringVar(&trainStrategy, "s", "", "training strategy {ipm}; default is training with single core")
 	fs.Float64Var(&eta, "eta", 0.8, "confidence parameter for Confidence Weighted")
 	fs.Float64Var(&gamma, "g", 10., "regularization parameter for AROW")
 	fs.Float64Var(&C, "C", 0.01, "degree of aggressiveness for PA-I and PA-II")
 	fs.IntVar(&loop, "i", 1, "number of iterations")
+	fs.IntVar(&numCpu, "p", runtime.NumCPU(), "number of cores for ipm (Iterative Prameter Mixture)")
 	fs.BoolVar(&without_shuffle, "withoutshuffle", false, "doesn't shuffle the training data")
 	fs.Parse(args)
 
@@ -41,24 +46,6 @@ func train(args []string) {
 		y_test  *[]string
 	)
 
-	switch algorithm {
-	case "p":
-		learner = gonline.NewPerceptron()
-	case "pa":
-		learner = gonline.NewPA("", C)
-	case "pa1":
-		learner = gonline.NewPA("I", C)
-	case "pa2":
-		learner = gonline.NewPA("II", C)
-	case "cw":
-		learner = gonline.NewCW(eta)
-	case "arow":
-		learner = gonline.NewArow(gamma)
-	default:
-		panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
-	}
-
-	fmt.Println("algorithm:", learner.Name())
 	if testfile != "" {
 		fmt.Println("testfile", testfile)
 		x_test, y_test = gonline.LoadData(testfile)
@@ -68,32 +55,109 @@ func train(args []string) {
 	} else {
 		fmt.Println("training data will be shuffled")
 	}
+	if trainStrategy != "" {
+		fmt.Println("training strategy:", trainStrategy)
+	}
 
-	for i := 0; i < loop; i++ {
-		for _, trainfile := range fs.Args() {
-			x_train, y_train = gonline.LoadData(trainfile)
-			if !without_shuffle {
-				gonline.ShuffleData(x_train, y_train)
+	switch trainStrategy {
+	case "ipm":
+		runtime.GOMAXPROCS(numCpu)
+		learners := make([]gonline.LearnerInterface, numCpu, numCpu)
+		for i := 0; i < numCpu; i++ {
+			switch algorithm {
+			case "p":
+				learner = gonline.NewPerceptron()
+			case "pa":
+				learner = gonline.NewPA("", C)
+			case "pa1":
+				learner = gonline.NewPA("I", C)
+			case "pa2":
+				learner = gonline.NewPA("II", C)
+			case "cw":
+				learner = gonline.NewCW(eta)
+			case "arow":
+				learner = gonline.NewArow(gamma)
+			default:
+				panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
 			}
-			learner.Fit(x_train, y_train)
+			learners[i] = learner
 		}
-		if testfile != "" {
-			numCorr := 0
-			numTotal := 0
-			cls := gonline.Classifier{}
-			cls.Weight = *learner.GetParam()
-			ftdic, labeldic := learner.GetDics()
-			cls.FtDict = *ftdic
-			cls.LabelDict = *labeldic
-			for i, x_i := range *x_test {
-				j := cls.Predict(&x_i)
-				if cls.LabelDict.Id2elem[j] == (*y_test)[i] {
-					numCorr += 1
+		fmt.Println("algorithm:", learners[0].Name())
+		runtime.GOMAXPROCS(numCpu)
+		for i := 0; i < loop; i++ {
+			for _, trainfile := range fs.Args() {
+				x_train, y_train = gonline.LoadData(trainfile)
+				if !without_shuffle {
+					gonline.ShuffleData(x_train, y_train)
 				}
-				numTotal += 1
+				gonline.FitLearners(&learners, x_train, y_train)
+				gonline.AverageModels(&learners)
+				if testfile != "" {
+					numCorr := 0
+					numTotal := 0
+					cls := gonline.Classifier{}
+					avg_w := learners[0].GetParam()
+					avg_ft, avg_label := learners[0].GetDics()
+					cls.Weight = *avg_w
+					cls.FtDict = *avg_ft
+					cls.LabelDict = *avg_label
+					for i, x_i := range *x_test {
+						j := cls.Predict(&x_i)
+						if cls.LabelDict.Id2elem[j] == (*y_test)[i] {
+							numCorr += 1
+						}
+						numTotal += 1
+					}
+					acc := float64(numCorr) / float64(numTotal)
+					fmt.Printf("epoch:%d test accuracy: %f (%d/%d)\n", i+1, acc, numCorr, numTotal)
+				}
 			}
-			acc := float64(numCorr) / float64(numTotal)
-			fmt.Printf("epoch:%d test accuracy: %f (%d/%d)\n", i+1, acc, numCorr, numTotal)
+		}
+	default:
+		switch algorithm {
+		case "p":
+			learner = gonline.NewPerceptron()
+		case "pa":
+			learner = gonline.NewPA("", C)
+		case "pa1":
+			learner = gonline.NewPA("I", C)
+		case "pa2":
+			learner = gonline.NewPA("II", C)
+		case "cw":
+			learner = gonline.NewCW(eta)
+		case "arow":
+			learner = gonline.NewArow(gamma)
+		default:
+			panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
+		}
+		fmt.Println("algorithm:", learner.Name())
+		for i := 0; i < loop; i++ {
+			for _, trainfile := range fs.Args() {
+				x_train, y_train = gonline.LoadData(trainfile)
+				if !without_shuffle {
+					gonline.ShuffleData(x_train, y_train)
+				}
+				learner.Fit(x_train, y_train)
+
+			}
+			if testfile != "" {
+				numCorr := 0
+				numTotal := 0
+				cls := gonline.Classifier{}
+				cls.Weight = *learner.GetParam()
+				ftdic, labeldic := learner.GetDics()
+				cls.FtDict = *ftdic
+				cls.LabelDict = *labeldic
+				for i, x_i := range *x_test {
+					j := cls.Predict(&x_i)
+					if cls.LabelDict.Id2elem[j] == (*y_test)[i] {
+						numCorr += 1
+					}
+					numTotal += 1
+				}
+				acc := float64(numCorr) / float64(numTotal)
+				fmt.Printf("epoch:%d test accuracy: %f (%d/%d)\n", i+1, acc, numCorr, numTotal)
+			}
 		}
 	}
 	learner.Save(model)
