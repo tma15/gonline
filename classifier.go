@@ -2,6 +2,7 @@ package gonline
 
 import (
 	"bufio"
+	//     "fmt"
 	"math"
 	"os"
 	"sort"
@@ -59,6 +60,9 @@ func (this *Classifier) Predict(x *map[string]float64) int {
 				continue
 			}
 			ftid := this.FtDict.Elem2id[ft]
+			if ftid >= len(w) { /* weight of this feature is zero. */
+				continue
+			}
 			dot += w[ftid] * val
 		}
 		if dot > max {
