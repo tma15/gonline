@@ -62,6 +62,7 @@ func train(args []string) {
 	switch trainStrategy {
 	case "ipm":
 		runtime.GOMAXPROCS(numCpu)
+		fmt.Println("number of cpu cores", numCpu)
 		learners := make([]gonline.LearnerInterface, numCpu, numCpu)
 		for i := 0; i < numCpu; i++ {
 			switch algorithm {
@@ -91,7 +92,8 @@ func train(args []string) {
 					gonline.ShuffleData(x_train, y_train)
 				}
 				gonline.FitLearners(&learners, x_train, y_train)
-				gonline.AverageModels(&learners)
+				learner_avg := gonline.AverageModels(&learners)
+				gonline.BroadCastModel(learner_avg, &learners)
 				if testfile != "" {
 					numCorr := 0
 					numTotal := 0

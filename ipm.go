@@ -1,6 +1,7 @@
 package gonline
 
 import (
+	//     "fmt"
 	"sync"
 )
 
@@ -36,12 +37,12 @@ func FitLearners(learners *[]LearnerInterface, x *[]map[string]float64, y *[]str
 	wg.Wait()
 }
 
-func AverageModels(learners *[]LearnerInterface) {
+func average_two(learner1, learner2 *LearnerInterface) *LearnerInterface {
 	avg_w := make([][]float64, 10, 10)
 	avg_ftdic := NewDict()
 	avg_labeldic := NewDict()
-
-	for _, learner := range *learners {
+	learners := []LearnerInterface{*learner1, *learner2}
+	for _, learner := range learners {
 		w := learner.GetParam()
 		ftdict, labeldict := learner.GetDics()
 		for yid := 0; yid < len(*w); yid++ {
@@ -62,21 +63,73 @@ func AverageModels(learners *[]LearnerInterface) {
 				for i := len(avg_w[yid_avg]); i <= ftid_avg; i++ {
 					avg_w[yid_avg] = append(avg_w[yid_avg], 0.)
 				}
-				avg_w[yid_avg][ftid_avg] += (*w)[yid][ftid] / float64(len(*learners))
+				avg_w[yid_avg][ftid_avg] += (*w)[yid][ftid] / float64(len(learners))
 			}
 		}
 	}
+	(*learner1).SetParam(&avg_w)
+	(*learner1).SetDics(&avg_ftdic, &avg_labeldic)
+	return learner1
+}
+
+/*
+	Repeat following processes:
+	  1. For every two learners, calculate average model,
+	  2. generate a slice of averaged models.
+	Finally, return an average model over all learners.
+*/
+func AverageModels(learners *[]LearnerInterface) *LearnerInterface {
+	if len(*learners)%2 != 0 { /* add learner to make length of learners is even number */
+		*learners = append(*learners, (*learners)[len(*learners)/2])
+	}
+	num_learner := len(*learners)
+	buffer := make(chan int, num_learner)
+	results := make(chan *LearnerInterface, num_learner)
 
 	var wg sync.WaitGroup
+	for i := 0; i < num_learner; i++ {
+		wg.Add(1)
+		go func(ch chan int) {
+			defer wg.Done()
+			for j := range ch {
+				//                 fmt.Println(j, j+num_learner/2)
+				l1 := (*learners)[j]
+				l2 := (*learners)[j+num_learner/2]
+				l_avg := average_two(&l1, &l2)
+				results <- l_avg
+			}
+		}(buffer)
+	}
+	for i := 0; i < num_learner/2; i++ {
+		buffer <- i
+	}
+	close(buffer)
+	wg.Wait()
+	close(results)
+	learners_avg := make([]LearnerInterface, 0, num_learner/2)
+	for l_avg := range results {
+		learners_avg = append(learners_avg, *l_avg)
+	}
+
+	if len(learners_avg) == 1 {
+		return &learners_avg[0]
+	}
+	return AverageModels(&learners_avg)
+}
+
+func BroadCastModel(avg_learner *LearnerInterface, learners *[]LearnerInterface) {
+	avg_w := (*avg_learner).GetParam()
+	avg_ftdic, avg_labeldic := (*avg_learner).GetDics()
 	num_learner := len(*learners)
+	var wg sync.WaitGroup
 	buffer := make(chan int, num_learner)
 	for i := 0; i < num_learner; i++ {
 		wg.Add(1)
 		go func(ch chan int) {
 			defer wg.Done()
 			for j := range ch {
-				(*learners)[j].SetParam(&avg_w)
-				(*learners)[j].SetDics(&avg_ftdic, &avg_labeldic)
+				(*learners)[j].SetParam(avg_w)
+				(*learners)[j].SetDics(avg_ftdic, avg_labeldic)
 			}
 		}(buffer)
 	}
