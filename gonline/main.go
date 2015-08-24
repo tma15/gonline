@@ -92,7 +92,8 @@ func train(args []string) {
 					gonline.ShuffleData(x_train, y_train)
 				}
 				gonline.FitLearners(&learners, x_train, y_train)
-				learner_avg := gonline.AverageModels(&learners)
+				//                 learner_avg := gonline.AverageModels(&learners)
+				learner_avg := gonline.AverageModels(learners)
 				gonline.BroadCastModel(learner_avg, &learners)
 				if testfile != "" {
 					numCorr := 0

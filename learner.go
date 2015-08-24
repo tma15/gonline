@@ -39,8 +39,10 @@ type LearnerInterface interface {
 	Fit(*[]map[string]float64, *[]string)
 	Save(string)
 	GetParam() *[][]float64
+	GetParams() *[][][]float64
 	GetDics() (*Dict, *Dict)
 	SetParam(*[][]float64)
+	SetParams(*[][][]float64)
 	SetDics(*Dict, *Dict)
 }
 
@@ -100,12 +102,23 @@ func (this *Learner) GetParam() *[][]float64 {
 	return &this.Weight
 }
 
+func (this *Learner) GetParams() *[][][]float64 {
+	params := [][][]float64{
+		this.Weight,
+	}
+	return &params
+}
+
 func (this *Learner) GetDics() (*Dict, *Dict) {
 	return &this.FtDict, &this.LabelDict
 }
 
 func (this *Learner) SetParam(w *[][]float64) {
 	this.Weight = *w
+}
+
+func (this *Learner) SetParams(params *[][][]float64) {
+	this.Weight = (*params)[0]
 }
 
 func (this *Learner) SetDics(ftdict, labeldict *Dict) {
@@ -303,6 +316,19 @@ func (this *CW) Name() string {
 	return "CW"
 }
 
+func (this *CW) GetParams() *[][][]float64 {
+	params := [][][]float64{
+		this.Weight,
+		this.diag,
+	}
+	return &params
+}
+
+func (this *CW) SetParams(params *[][][]float64) {
+	this.Weight = (*params)[0]
+	this.diag = (*params)[1]
+}
+
 func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
@@ -441,6 +467,19 @@ func NewArow(gamma float64) *Arow {
 
 func (this *Arow) Name() string {
 	return "AROW"
+}
+
+func (this *Arow) GetParams() *[][][]float64 {
+	params := [][][]float64{
+		this.Weight,
+		this.diag,
+	}
+	return &params
+}
+
+func (this *Arow) SetParams(params *[][][]float64) {
+	this.Weight = (*params)[0]
+	this.diag = (*params)[1]
 }
 
 func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
