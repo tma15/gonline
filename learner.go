@@ -426,7 +426,7 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 			gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
 			alpha := Max(0., gamma)
 			beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
-			for k := 0; i < num_feat; k++ {
+			for k := 0; k < num_feat; k++ {
 				val := vals[k]
 				ftid := fids[k]
 				this.Weight[yid][ftid] += sign * alpha * (*_diag)[ftid] * val
