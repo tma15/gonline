@@ -59,6 +59,7 @@ func train(args []string) {
 		fmt.Println("training strategy:", trainStrategy)
 	}
 
+	var learner_avg *gonline.LearnerInterface
 	switch trainStrategy {
 	case "ipm":
 		runtime.GOMAXPROCS(numCpu)
@@ -91,10 +92,14 @@ func train(args []string) {
 				if !without_shuffle {
 					gonline.ShuffleData(x_train, y_train)
 				}
-				gonline.FitLearners(&learners, x_train, y_train)
-				//                 learner_avg := gonline.AverageModels(&learners)
-				learner_avg := gonline.AverageModels(learners)
-				gonline.BroadCastModel(learner_avg, &learners)
+				if numCpu > 1 {
+					gonline.FitLearners(&learners, x_train, y_train)
+					learner_avg = gonline.AverageModels(learners)
+					gonline.BroadCastModel(learner_avg, &learners)
+				} else {
+					learners[0].Fit(x_train, y_train)
+					learner_avg = &learners[0]
+				}
 				if testfile != "" {
 					numCorr := 0
 					numTotal := 0
@@ -163,7 +168,13 @@ func train(args []string) {
 			}
 		}
 	}
-	learner.Save(model)
+	switch trainStrategy {
+	case "ipm":
+		(*learner_avg).Save(model)
+	default:
+		learner.Save(model)
+	}
+	//     learner.Save(model)
 }
 
 func test(args []string) {

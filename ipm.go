@@ -43,7 +43,7 @@ func average_two(learner1, learner2 *LearnerInterface) *LearnerInterface {
 	num_params := len(*params)
 	avg_params := make([][][]float64, num_params, num_params)
 	for i := 0; i < num_params; i++ {
-		avg_params = append(avg_params, make([][]float64, 10))
+		avg_params[i] = make([][]float64, 10)
 	}
 
 	avg_ftdic := NewDict()
@@ -51,32 +51,35 @@ func average_two(learner1, learner2 *LearnerInterface) *LearnerInterface {
 	learners := []LearnerInterface{*learner1, *learner2}
 	for _, learner := range learners {
 		params := learner.GetParams()
+		num_params := len(*params)
 		ftdict, labeldict := learner.GetDics()
-		for yid := 0; yid < len(labeldict.Id2elem); yid++ {
-			y := labeldict.Id2elem[yid]
-			if !avg_labeldic.HasElem(y) {
-				avg_labeldic.AddElem(y)
-			}
-			yid_avg := avg_labeldic.Elem2id[y]
-			for p := 0; p < num_params; p++ {
-				for i := len(avg_params[p]); i <= yid_avg; i++ {
-					avg_params[p] = append(avg_params[p], make([]float64, 0, 1000))
+
+		for p := 0; p < num_params; p++ {
+			param := (*params)[p]
+			avg_param := &avg_params[p]
+			for yid := 0; yid < len(labeldict.Id2elem); yid++ {
+				y := labeldict.Id2elem[yid]
+				if !avg_labeldic.HasElem(y) {
+					avg_labeldic.AddElem(y)
 				}
-			}
-			for p := 0; p < num_params; p++ {
-				for ftid := 0; ftid < len((*params)[p][yid]); ftid++ {
-					if ftid >= len((*params)[p][yid]) {
-						continue
-					}
+				yid_avg := avg_labeldic.Elem2id[y]
+				for i := len(*avg_param); i <= yid_avg; i++ {
+					*avg_param = append(*avg_param, make([]float64, 0, 1000))
+				}
+				avg_param_y := &avg_params[p][yid_avg]
+				param_y := param[yid]
+
+				for ftid := 0; ftid < len(param[yid]); ftid++ {
 					ft := ftdict.Id2elem[ftid]
 					if !avg_ftdic.HasElem(ft) {
 						avg_ftdic.AddElem(ft)
 					}
 					ftid_avg := avg_ftdic.Elem2id[ft]
-					for i := len(avg_params[p][yid_avg]); i <= ftid_avg; i++ {
-						avg_params[p][yid_avg] = append(avg_params[p][yid_avg], 0.)
+					for i := len(*avg_param_y); i <= ftid_avg; i++ {
+						*avg_param_y = append(*avg_param_y, 0.)
 					}
-					avg_params[p][yid_avg][ftid_avg] += (*params)[p][yid][ftid] / float64(len(learners))
+					(*avg_param_y)[ftid_avg] += param_y[ftid] / float64(len(learners))
+
 				}
 			}
 		}
