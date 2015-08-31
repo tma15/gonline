@@ -59,12 +59,17 @@ epoch:10 test accuracy: 0.859755 (3433/3993)
 
 In practice, shuffling training data can improve accuracy.
 
-If your environment is multi-core CPU, you can make training faster than single core CPU using the following command:
+If your environment is multi-core CPU, you can make training faster than single core CPU using the following command when a number of training data is large:
 ```
-time ./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle -p 4 -s ipm ./news20.scale
+$touch news20.scale.big
+$for i in 1 2 3 4 5; do cat news20.scale >> news20.scale.big; done
+$time ./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle -p 4 -s ipm ./news20.scale.big
+./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle -p  291.76s user 12.25s system 179% cpu 2:49.49 total
+$time ./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle -p 1 -s ipm ./news20.scale.big
+./gonline train -a arow -m model -i 10 -t ./news20.t.scale -withoutshuffle -p  176.38s user 5.91s system 94% cpu 3:12.42 total
 ```
 
-where `-s` is training strategy and `ipm` for `-s` means using Iterative Parameter Mixture for training. `-p` is number of using cores for training.
+where `-s` is training strategy and `ipm` for `-s` means using Iterative Parameter Mixture for training. `-p` is number of using cores for training. These experiments are conducted by using 1.7 GHz Intel Core i5. When a number of training data is not large, training time will not be shortened.
 
 You can see more command options using help option:
 
