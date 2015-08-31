@@ -135,7 +135,7 @@ func AverageModels(learners []LearnerInterface) *LearnerInterface {
 }
 
 func BroadCastModel(avg_learner *LearnerInterface, learners *[]LearnerInterface) {
-	avg_w := (*avg_learner).GetParam()
+	params := (*avg_learner).GetParams()
 	avg_ftdic, avg_labeldic := (*avg_learner).GetDics()
 	num_learner := len(*learners)
 	var wg sync.WaitGroup
@@ -145,7 +145,7 @@ func BroadCastModel(avg_learner *LearnerInterface, learners *[]LearnerInterface)
 		go func(ch chan int) {
 			defer wg.Done()
 			for j := range ch {
-				(*learners)[j].SetParam(avg_w)
+				(*learners)[j].SetParams(params)
 				(*learners)[j].SetDics(avg_ftdic, avg_labeldic)
 			}
 		}(buffer)
