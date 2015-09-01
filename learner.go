@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"sort"
 )
 
 type Dict struct {
@@ -27,6 +26,21 @@ func (this *Dict) HasElem(elem string) bool {
 	}
 }
 
+type Feature struct {
+	Id   int
+	Val  float64
+	Name string
+}
+
+func NewFeature(id int, val float64, name string) Feature {
+	f := Feature{
+		Id:   id,
+		Val:  val,
+		Name: name,
+	}
+	return f
+}
+
 func (this *Dict) AddElem(elem string) {
 	id := len(this.Id2elem)
 	this.Elem2id[elem] = id
@@ -35,7 +49,7 @@ func (this *Dict) AddElem(elem string) {
 
 type LearnerInterface interface {
 	Name() string
-	updateDict(*[]string, *string)
+	conv(*string, *map[string]float64) (int, *[]Feature)
 	Fit(*[]map[string]float64, *[]string)
 	Save(string)
 	GetParam() *[][]float64
@@ -52,15 +66,24 @@ type Learner struct {
 	LabelDict Dict
 }
 
-func (this *Learner) updateDict(features *[]string, label *string) {
-	for _, name := range *features {
+func (this *Learner) conv(label *string, x *map[string]float64) (int, *[]Feature) {
+	num_feat := len(*x)
+	features := make([]Feature, num_feat, num_feat)
+	i := 0
+	for name, val := range *x {
 		if !this.FtDict.HasElem(name) {
 			this.FtDict.AddElem(name)
 		}
+		id := this.FtDict.Elem2id[name]
+		f := NewFeature(id, val, name)
+		features[i] = f
+		i++
 	}
 	if !this.LabelDict.HasElem(*label) {
 		this.LabelDict.AddElem(*label)
 	}
+	tid := this.LabelDict.Elem2id[*label]
+	return tid, &features
 }
 
 func (this *Learner) Name() string {
@@ -146,17 +169,7 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
-		features := GetSortedFeatures(&xi)
-		num_feat := len(features)
-		this.updateDict(&features, &yi)
-		fids := make([]int, num_feat, num_feat)
-		vals := make([]float64, num_feat, num_feat)
-		for k, ft := range features {
-			fids[k] = this.FtDict.Elem2id[ft]
-			vals[k] = xi[ft]
-		}
-
-		tid := this.LabelDict.Elem2id[yi]
+		tid, features := this.conv(&yi, &xi)
 		if len(this.Weight) <= tid {
 			for k := len(this.Weight); k <= tid; k++ {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
@@ -168,18 +181,15 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
 			dot := 0.
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
-
+			for _, feature := range *features {
 				/* expand feature size */
-				if len(*w) <= ftid {
-					for k := len(*w); k <= ftid; k++ {
+				if len(*w) <= feature.Id {
+					for k := len(*w); k <= feature.Id; k++ {
 						*w = append(*w, 0.)
 					}
 				}
 
-				dot += (*w)[ftid] * val
+				dot += (*w)[feature.Id] * feature.Val
 			}
 
 			if max < dot {
@@ -189,11 +199,9 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 		}
 
 		if argmax != tid {
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
-				this.Weight[tid][ftid] += val
-				this.Weight[argmax][ftid] -= val
+			for _, feature := range *features {
+				this.Weight[tid][feature.Id] += feature.Val
+				this.Weight[argmax][feature.Id] -= feature.Val
 			}
 		}
 	}
@@ -234,17 +242,7 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
-		features := GetSortedFeatures(&xi)
-		num_feat := len(features)
-		this.updateDict(&features, &yi)
-		fids := make([]int, num_feat, num_feat)
-		vals := make([]float64, num_feat, num_feat)
-		for k, ft := range features {
-			fids[k] = this.FtDict.Elem2id[ft]
-			vals[k] = xi[ft]
-		}
-
-		tid := this.LabelDict.Elem2id[yi]
+		tid, features := this.conv(&yi, &xi)
 
 		/* expand label size */
 		if len(this.Weight) <= tid {
@@ -259,16 +257,14 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
 			dot := 0.
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
+			for _, feature := range *features {
 				/* expand feature size */
-				if len(*w) <= ftid {
-					for k := len(*w); k <= ftid; k++ {
+				if len(*w) <= feature.Id {
+					for k := len(*w); k <= feature.Id; k++ {
 						*w = append(*w, 0.)
 					}
 				}
-				dot += (*w)[ftid] * val
+				dot += (*w)[feature.Id] * feature.Val
 			}
 
 			if max < dot {
@@ -279,16 +275,13 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 
 		if argmax != tid {
 			norm := 0.
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				norm += val * val
+			for _, feature := range *features {
+				norm += feature.Val * feature.Val
 			}
 			tau := this.Tau(max, norm, this.C)
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
-				this.Weight[tid][ftid] += tau * val
-				this.Weight[argmax][ftid] -= tau * val
+			for _, feature := range *features {
+				this.Weight[tid][feature.Id] += tau * feature.Val
+				this.Weight[argmax][feature.Id] -= tau * feature.Val
 			}
 		}
 	}
@@ -348,17 +341,7 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
-		features := GetSortedFeatures(&xi)
-		num_feat := len(features)
-		this.updateDict(&features, &yi)
-		fids := make([]int, num_feat, num_feat)
-		vals := make([]float64, num_feat, num_feat)
-		for k, ft := range features {
-			fids[k] = this.FtDict.Elem2id[ft]
-			vals[k] = xi[ft]
-		}
-
-		tid := this.LabelDict.Elem2id[yi]
+		tid, features := this.conv(&yi, &xi)
 
 		/* expand label size */
 		if len(this.Weight) <= tid {
@@ -381,23 +364,20 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 			w := &this.Weight[yid]
 			d := &this.diag[yid]
 			dot := 0.
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
-
+			for _, feature := range *features {
 				/* expand feature size */
-				if len(*w) <= ftid {
-					for k := len(*w); k <= ftid; k++ {
+				if len(*w) <= feature.Id {
+					for k := len(*w); k <= feature.Id; k++ {
 						*w = append(*w, 0.)
 					}
 				}
-				if len(*d) <= ftid {
-					for k := len(*d); k <= ftid; k++ {
+				if len(*d) <= feature.Id {
+					for k := len(*d); k <= feature.Id; k++ {
 						*d = append((*d), 1.*this.a)
 					}
 				}
 
-				dot += (*w)[ftid] * val
+				dot += (*w)[feature.Id] * feature.Val
 			}
 			if max < dot {
 				max = dot
@@ -420,17 +400,15 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 			}
 			M := sign * margins[yid]
 			_diag := &this.diag[yid]
-			V := calcConfidence(_diag, num_feat, &fids, &vals)
+			V := calcConfidence(_diag, features)
 			_n := 1. + 2.*this.phi*M
 			sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
 			gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
 			alpha := Max(0., gamma)
 			beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
-				this.Weight[yid][ftid] += sign * alpha * (*_diag)[ftid] * val
-				(*_diag)[ftid] -= (*_diag)[ftid] * val * beta * val * (*_diag)[ftid]
+			for _, feature := range *features {
+				this.Weight[yid][feature.Id] += sign * alpha * (*_diag)[feature.Id] * feature.Val
+				(*_diag)[feature.Id] -= (*_diag)[feature.Id] * feature.Val * beta * feature.Val * (*_diag)[feature.Id]
 			}
 		}
 	}
@@ -475,17 +453,7 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
-		features := GetSortedFeatures(&xi)
-		num_feat := len(features)
-		this.updateDict(&features, &yi)
-		fids := make([]int, num_feat, num_feat)
-		vals := make([]float64, num_feat, num_feat)
-		for k, ft := range features {
-			fids[k] = this.FtDict.Elem2id[ft]
-			vals[k] = xi[ft]
-		}
-
-		tid := this.LabelDict.Elem2id[yi]
+		tid, features := this.conv(&yi, &xi)
 
 		/* expand label size */
 		if len(this.Weight) <= tid {
@@ -506,23 +474,24 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 			w := &this.Weight[yid]
 			d := &this.diag[yid]
 			dot := 0.
-			for k := 0; k < num_feat; k++ {
-				val := vals[k]
-				ftid := fids[k]
+			for _, feature := range *features {
+				//             for k := 0; k < num_feat; k++ {
+				//                 val := vals[k]
+				//                 ftid := fids[k]
 
 				/* expand feature size */
-				if len(*w) <= ftid {
-					for k := len(*w); k <= ftid; k++ {
+				if len(*w) <= feature.Id {
+					for k := len(*w); k <= feature.Id; k++ {
 						*w = append(*w, 0.)
 					}
 				}
-				if len(*d) <= ftid {
-					for k := len(*d); k <= ftid; k++ {
+				if len(*d) <= feature.Id {
+					for k := len(*d); k <= feature.Id; k++ {
 						*d = append(*d, 1.*this.a)
 					}
 				}
 
-				dot += (*w)[ftid] * val
+				dot += (*w)[feature.Id] * feature.Val
 			}
 			if max < dot {
 				max = dot
@@ -546,17 +515,15 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 				}
 				/* update parameters */
 				_diag := &this.diag[yid]
-				V := calcConfidence(_diag, num_feat, &fids, &vals)
+				V := calcConfidence(_diag, features)
 				beta := 1. / (V + this.gamma)
 				alpha := Max(0., 1.-sign*margins[yid]) * beta
 				if alpha == 0. {
 					continue
 				}
-				for k := 0; k < num_feat; k++ {
-					val := vals[k]
-					ftid := fids[k]
-					this.Weight[yid][ftid] += sign * alpha * (*_diag)[ftid] * val
-					(*_diag)[ftid] -= beta * (*_diag)[ftid] * val * val * (*_diag)[ftid]
+				for _, feature := range *features {
+					this.Weight[yid][feature.Id] += sign * alpha * (*_diag)[feature.Id] * feature.Val
+					(*_diag)[feature.Id] -= beta * (*_diag)[feature.Id] * feature.Val * feature.Val * (*_diag)[feature.Id]
 				}
 			}
 		}
@@ -586,23 +553,10 @@ func Max(x, y float64) float64 {
 	}
 }
 
-func calcConfidence(diag *[]float64, num_feat int, ids *[]int, vals *[]float64) float64 {
+func calcConfidence(diag *[]float64, features *[]Feature) float64 {
 	V := 0.
-	for k := 0; k < num_feat; k++ {
-		ftid := (*ids)[k]
-		val := (*vals)[k]
-		V += val * val * (*diag)[ftid]
+	for _, feature := range *features {
+		V += feature.Val * feature.Val * (*diag)[feature.Id]
 	}
 	return V
-}
-
-func GetSortedFeatures(x *map[string]float64) []string {
-	features := make([]string, len(*x), len(*x))
-	k := 0
-	for name, _ := range *x {
-		features[k] = name
-		k++
-	}
-	sort.Strings(features)
-	return features
 }
