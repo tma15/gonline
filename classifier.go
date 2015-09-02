@@ -48,22 +48,32 @@ func NewClassifier() Classifier {
 	return c
 }
 
+func (this *Classifier) conv(x *map[string]float64) *[]Feature {
+	num_feat := len(*x)
+	features := make([]Feature, 0, num_feat)
+	for name, val := range *x {
+		if !this.FtDict.HasElem(name) {
+			continue
+		}
+		id := this.FtDict.Elem2id[name]
+		f := NewFeature(id, val, name)
+		features = append(features, f)
+	}
+	return &features
+}
+
 func (this *Classifier) Predict(x *map[string]float64) int {
 	argmax := -1
 	max := math.Inf(-1)
-
+	features := this.conv(x)
 	for labelid := 0; labelid < len(this.Weight); labelid++ {
 		dot := 0.
 		w := this.Weight[labelid]
-		for ft, val := range *x {
-			if !this.FtDict.HasElem(ft) {
+		for _, f := range *features {
+			if f.Id >= len(w) { /* weight of this feature is zero. */
 				continue
 			}
-			ftid := this.FtDict.Elem2id[ft]
-			if ftid >= len(w) { /* weight of this feature is zero. */
-				continue
-			}
-			dot += w[ftid] * val
+			dot += w[f.Id] * f.Val
 		}
 		if dot > max {
 			max = dot

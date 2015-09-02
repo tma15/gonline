@@ -86,12 +86,12 @@ func train(args []string) {
 		}
 		fmt.Println("algorithm:", learners[0].Name())
 		runtime.GOMAXPROCS(numCpu)
-		for i := 0; i < loop; i++ {
-			for _, trainfile := range fs.Args() {
-				x_train, y_train = gonline.LoadData(trainfile)
-				if !without_shuffle {
-					gonline.ShuffleData(x_train, y_train)
-				}
+		for _, trainfile := range fs.Args() {
+			x_train, y_train = gonline.LoadData(trainfile)
+			if !without_shuffle {
+				gonline.ShuffleData(x_train, y_train)
+			}
+			for i := 0; i < loop; i++ {
 				if numCpu > 1 {
 					gonline.FitLearners(&learners, x_train, y_train)
 					learner_avg = gonline.AverageModels(learners)

@@ -475,10 +475,6 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 			d := &this.diag[yid]
 			dot := 0.
 			for _, feature := range *features {
-				//             for k := 0; k < num_feat; k++ {
-				//                 val := vals[k]
-				//                 ftid := fids[k]
-
 				/* expand feature size */
 				if len(*w) <= feature.Id {
 					for k := len(*w); k <= feature.Id; k++ {
