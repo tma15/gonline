@@ -41,6 +41,8 @@ func NewFeature(id int, val float64, name string) Feature {
 	return f
 }
 
+type Param Feature
+
 func (this *Dict) AddElem(elem string) {
 	id := len(this.Id2elem)
 	this.Elem2id[elem] = id
@@ -54,6 +56,8 @@ type LearnerInterface interface {
 	Save(string)
 	GetParam() *[][]float64
 	GetParams() *[][][]float64
+	//     GetNonZeroParams() (*[][][]Param, *[]string)
+	GetNonZeroParams() *[][][]Param
 	GetDics() (*Dict, *Dict)
 	SetParam(*[][]float64)
 	SetParams(*[][][]float64)
@@ -101,21 +105,18 @@ func (this *Learner) Save(fname string) {
 	}
 	writer := bufio.NewWriterSize(fp, 4096*32)
 	labelsize := len(this.LabelDict.Id2elem)
-	featuresize := len(this.FtDict.Id2elem)
 	writer.WriteString(fmt.Sprintf("labelsize\t%d\n", labelsize))
-	writer.WriteString(fmt.Sprintf("featuresize\t%d\n", featuresize))
 	for i := 0; i < labelsize; i++ {
 		label := this.LabelDict.Id2elem[i]
 		writer.WriteString(fmt.Sprintf("%s\n", label))
 	}
-	for i := 0; i < featuresize; i++ {
-		ft := this.FtDict.Id2elem[i]
-		writer.WriteString(fmt.Sprintf("%s\n", ft))
-	}
 	for labelid := 0; labelid < labelsize; labelid++ {
 		w := this.Weight[labelid]
-		for ftid := 0; ftid < featuresize; ftid++ {
-			writer.WriteString(fmt.Sprintf("%f\n", w[ftid]))
+		featuresize := len(w)
+		writer.WriteString(fmt.Sprintf("featuresize\t%d\n", featuresize))
+		for ftid := 0; ftid < len(w); ftid++ {
+			ft := this.FtDict.Id2elem[ftid]
+			writer.WriteString(fmt.Sprintf("%s %f\n", ft, w[ftid]))
 		}
 	}
 	writer.Flush()
@@ -147,6 +148,30 @@ func (this *Learner) SetParams(params *[][][]float64) {
 func (this *Learner) SetDics(ftdict, labeldict *Dict) {
 	this.FtDict = *ftdict
 	this.LabelDict = *labeldict
+}
+
+func (this *Learner) GetNonZeroParams() *[][][]Param {
+	//     labels := make([]string, 0, 10)
+	params := make([][][]Param, 0, 1)
+	params = append(params, make([][]Param, 0, 10))
+	for yid := 0; yid < len(this.Weight); yid++ {
+		params[0] = append(params[0], make([]Param, 0, 1000))
+		//         label := this.LabelDict.Id2elem[yid]
+		//         labels = append(labels, label)
+		for ftid := 0; ftid < len(this.Weight[ftid]); ftid++ {
+			if this.Weight[yid][ftid] != 0. {
+				ft := this.FtDict.Id2elem[ftid]
+				param := Param{
+					Id:   ftid,
+					Name: ft,
+					Val:  this.Weight[yid][ftid],
+				}
+				params[0][yid] = append(params[0][yid], param)
+			}
+		}
+	}
+	//     return &params, &labels
+	return &params
 }
 
 type Perceptron struct {
@@ -189,6 +214,9 @@ func (this *Perceptron) Fit(x *[]map[string]float64, y *[]string) {
 					}
 				}
 
+				if feature.Id >= len(*w) {
+					continue
+				}
 				dot += (*w)[feature.Id] * feature.Val
 			}
 
@@ -264,6 +292,10 @@ func (this *PA) Fit(x *[]map[string]float64, y *[]string) {
 						*w = append(*w, 0.)
 					}
 				}
+
+				if feature.Id >= len(*w) {
+					continue
+				}
 				dot += (*w)[feature.Id] * feature.Val
 			}
 
@@ -308,7 +340,7 @@ type CW struct {
 	*Learner
 	a    float64 /* initial variance parameter */
 	phi  float64
-	diag [][]float64
+	Diag [][]float64
 }
 
 func NewCW(eta float64) *CW {
@@ -327,14 +359,14 @@ func (this *CW) Name() string {
 func (this *CW) GetParams() *[][][]float64 {
 	params := [][][]float64{
 		this.Weight,
-		this.diag,
+		this.Diag,
 	}
 	return &params
 }
 
 func (this *CW) SetParams(params *[][][]float64) {
 	this.Weight = (*params)[0]
-	this.diag = (*params)[1]
+	this.Diag = (*params)[1]
 }
 
 func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
@@ -350,9 +382,9 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 			}
 		}
 
-		if len(this.diag) <= tid {
-			for k := len(this.diag); k <= tid; k++ {
-				this.diag = append(this.diag, make([]float64, 0, 10000))
+		if len(this.Diag) <= tid {
+			for k := len(this.Diag); k <= tid; k++ {
+				this.Diag = append(this.Diag, make([]float64, 0, 10000))
 			}
 		}
 
@@ -362,7 +394,7 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
-			d := &this.diag[yid]
+			d := &this.Diag[yid]
 			dot := 0.
 			for _, feature := range *features {
 				/* expand feature size */
@@ -377,6 +409,9 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 					}
 				}
 
+				if feature.Id >= len(*w) {
+					continue
+				}
 				dot += (*w)[feature.Id] * feature.Val
 			}
 			if max < dot {
@@ -399,16 +434,16 @@ func (this *CW) Fit(x *[]map[string]float64, y *[]string) {
 				sign = -1.
 			}
 			M := sign * margins[yid]
-			_diag := &this.diag[yid]
-			V := calcConfidence(_diag, features)
+			_Diag := &this.Diag[yid]
+			V := calcConfidence(_Diag, features)
 			_n := 1. + 2.*this.phi*M
 			sqrt := math.Sqrt(math.Pow(_n, 2) - 8.*this.phi*(M-this.phi*V))
 			gamma := (-1.*_n + sqrt) / (4. * this.phi * V)
 			alpha := Max(0., gamma)
 			beta := 2. * alpha * this.phi / (1. + 2.*alpha*this.phi*V)
 			for _, feature := range *features {
-				this.Weight[yid][feature.Id] += sign * alpha * (*_diag)[feature.Id] * feature.Val
-				(*_diag)[feature.Id] -= (*_diag)[feature.Id] * feature.Val * beta * feature.Val * (*_diag)[feature.Id]
+				this.Weight[yid][feature.Id] += sign * alpha * (*_Diag)[feature.Id] * feature.Val
+				(*_Diag)[feature.Id] -= (*_Diag)[feature.Id] * feature.Val * beta * feature.Val * (*_Diag)[feature.Id]
 			}
 		}
 	}
@@ -422,11 +457,16 @@ type Arow struct {
 	*Learner
 	a     float64 /* initial variance parameter */
 	gamma float64 /* regularization parameter */
-	diag  [][]float64
+	Diag  [][]float64
 }
 
-func NewArow(gamma float64) *Arow {
-	arow := Arow{&Learner{}, 1., gamma, make([][]float64, 0, 100)}
+func NewArow(g float64) *Arow {
+	arow := Arow{
+		Learner: &Learner{},
+		a:       1.,
+		gamma:   g,
+		Diag:    make([][]float64, 0, 100),
+	}
 	arow.FtDict = NewDict()
 	arow.LabelDict = NewDict()
 	return &arow
@@ -439,14 +479,48 @@ func (this *Arow) Name() string {
 func (this *Arow) GetParams() *[][][]float64 {
 	params := [][][]float64{
 		this.Weight,
-		this.diag,
+		this.Diag,
+	}
+	return &params
+}
+
+func (this *Arow) GetNonZeroParams() *[][][]Param {
+	params := make([][][]Param, 0, 1)
+	params = append(params, make([][]Param, 0, 10))
+	params = append(params, make([][]Param, 0, 10))
+
+	for yid := 0; yid < len(this.Weight); yid++ {
+		params[0] = append(params[0], make([]Param, 0, 1000))
+		params[1] = append(params[1], make([]Param, 0, 1000))
+		for ftid := 0; ftid < len(this.Weight[yid]); ftid++ {
+			if this.Weight[yid][ftid] != 0. {
+				ft := this.FtDict.Id2elem[ftid]
+				param := Param{
+					Id:   ftid,
+					Name: ft,
+					Val:  this.Weight[yid][ftid],
+				}
+				params[0][yid] = append(params[0][yid], param)
+			}
+		}
+		for ftid := 0; ftid < len(this.Diag[yid]); ftid++ {
+			if this.Diag[yid][ftid] != 0. {
+				ft := this.FtDict.Id2elem[ftid]
+				param := Param{
+					Id:   ftid,
+					Name: ft,
+					Val:  this.Diag[yid][ftid],
+				}
+				params[1][yid] = append(params[1][yid], param)
+			}
+		}
 	}
 	return &params
 }
 
 func (this *Arow) SetParams(params *[][][]float64) {
 	this.Weight = (*params)[0]
-	this.diag = (*params)[1]
+	this.Diag = (*params)[1]
 }
 
 func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
@@ -461,9 +535,9 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 				this.Weight = append(this.Weight, make([]float64, 0, 10000))
 			}
 		}
-		if len(this.diag) <= tid {
-			for k := len(this.diag); k <= tid; k++ {
-				this.diag = append(this.diag, make([]float64, 0, 10000))
+		if len(this.Diag) <= tid {
+			for k := len(this.Diag); k <= tid; k++ {
+				this.Diag = append(this.Diag, make([]float64, 0, 10000))
 			}
 		}
 
@@ -472,7 +546,7 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 		margins := make([]float64, len(this.Weight), len(this.Weight))
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
-			d := &this.diag[yid]
+			d := &this.Diag[yid]
 			dot := 0.
 			for _, feature := range *features {
 				/* expand feature size */
@@ -487,6 +561,9 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 					}
 				}
 
+				if feature.Id >= len(*w) {
+					continue
+				}
 				dot += (*w)[feature.Id] * feature.Val
 			}
 			if max < dot {
@@ -496,7 +573,8 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 			margins[yid] = dot
 		}
 		if argmax == -1 {
-			fmt.Println(max, argmax)
+			fmt.Println(features)
+			fmt.Println(margins)
 			os.Exit(1)
 		}
 
@@ -510,20 +588,21 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 					sign = -1.
 				}
 				/* update parameters */
-				_diag := &this.diag[yid]
-				V := calcConfidence(_diag, features)
+				_Diag := &this.Diag[yid]
+				V := calcConfidence(_Diag, features)
 				beta := 1. / (V + this.gamma)
 				alpha := Max(0., 1.-sign*margins[yid]) * beta
 				if alpha == 0. {
 					continue
 				}
 				for _, feature := range *features {
-					this.Weight[yid][feature.Id] += sign * alpha * (*_diag)[feature.Id] * feature.Val
-					(*_diag)[feature.Id] -= beta * (*_diag)[feature.Id] * feature.Val * feature.Val * (*_diag)[feature.Id]
+					this.Weight[yid][feature.Id] += sign * alpha * (*_Diag)[feature.Id] * feature.Val
+					(*_Diag)[feature.Id] -= beta * (*_Diag)[feature.Id] * feature.Val * feature.Val * (*_Diag)[feature.Id]
 				}
 			}
 		}
 	}
+	fmt.Println("FITFIN", len(this.Weight), len(this.Diag))
 }
 
 /* Cumulative Distribution Function for the Normal distribution */
@@ -549,10 +628,10 @@ func Max(x, y float64) float64 {
 	}
 }
 
-func calcConfidence(diag *[]float64, features *[]Feature) float64 {
+func calcConfidence(Diag *[]float64, features *[]Feature) float64 {
 	V := 0.
 	for _, feature := range *features {
-		V += feature.Val * feature.Val * (*diag)[feature.Id]
+		V += feature.Val * feature.Val * (*Diag)[feature.Id]
 	}
 	return V
 }

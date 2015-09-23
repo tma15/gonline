@@ -2,7 +2,7 @@ package gonline
 
 import (
 	"bufio"
-	//     "fmt"
+	"fmt"
 	"math"
 	"os"
 	"sort"
@@ -115,7 +115,7 @@ func LoadClassifier(fname string) Classifier {
 	cls := NewClassifier()
 	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
 	if err != nil {
-		panic("Failed to load model")
+		panic(fmt.Sprintf("Failed to load model:%s", fname))
 	}
 	reader := bufio.NewReaderSize(model_f, 4096*32)
 	line, err := reader.ReadString('\n')
@@ -124,24 +124,29 @@ func LoadClassifier(fname string) Classifier {
 	}
 	labelsize, _ := strconv.Atoi(strings.Trim(strings.Split(line, "\t")[1], "\n"))
 
-	line, err = reader.ReadString('\n')
-	ftsize, _ := strconv.Atoi(strings.Trim(strings.Split(line, "\t")[1], "\n"))
 	for i := 0; i < labelsize; i++ {
 		line, err = reader.ReadString('\n')
 		cls.LabelDict.AddElem(strings.Trim(line, "\n"))
 	}
-	for i := 0; i < ftsize; i++ {
-		line, err = reader.ReadString('\n')
-		cls.FtDict.AddElem(strings.Trim(line, "\n"))
-	}
-
 	cls.Weight = make([][]float64, labelsize, labelsize)
 	for labelid := 0; labelid < labelsize; labelid++ {
+		line, err = reader.ReadString('\n')
+		line = strings.Trim(line, "\n")
+		ftsize, _ := strconv.Atoi(strings.Trim(strings.Split(line, "\t")[1], "\n"))
 		cls.Weight[labelid] = make([]float64, ftsize, ftsize)
-		for ftid := 0; ftid < ftsize; ftid++ {
+		for i := 0; i < ftsize; i++ {
 			line, err = reader.ReadString('\n')
 			line = strings.Trim(line, "\n")
-			w, _ := strconv.ParseFloat(line, 64)
+			sp := strings.Split(line, " ")
+			ft := sp[0]
+			w, err := strconv.ParseFloat(sp[1], 64)
+			if err != nil {
+				panic(err)
+			}
+			if !cls.FtDict.HasElem(ft) {
+				cls.FtDict.AddElem(ft)
+			}
+			ftid := cls.FtDict.Elem2id[ft]
 			cls.Weight[labelid][ftid] = w
 		}
 	}

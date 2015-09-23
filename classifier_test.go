@@ -47,16 +47,16 @@ func TestLoadModel(t *testing.T) {
 	k := "焼き肉"
 	yid := cls.LabelDict.Elem2id[y]
 	kid := cls.FtDict.Elem2id[k]
-	if cls.Weight[yid][kid] != 0.004634 {
-		t.Error("failed to load weight of feature ``焼き肉'' in label ``食べ物''")
+	if cls.Weight[yid][kid] != 0.076923 {
+		t.Error("want:0.076923 got:%f", cls.Weight[yid][kid])
 	}
 
 	y = "スポーツ"
 	k = "テニス"
 	yid = cls.LabelDict.Elem2id[y]
 	kid = cls.FtDict.Elem2id[k]
-	if cls.Weight[yid][kid] != 0.059096 {
-		t.Error(fmt.Sprintf("failed to load weight of feature ``テニス'' in label ``スポーツ'' :%f", cls.Weight[yid][kid]))
+	if cls.Weight[yid][kid] != 0.058824 {
+		t.Error(fmt.Sprintf("want:0.058824 got:%f", cls.Weight[yid][kid]))
 	}
 
 }
@@ -73,7 +73,7 @@ func TestPredict(t *testing.T) {
 		t.Error("Invalid predicted labelid")
 	}
 
-	topn, margins := cls.PredictTopN(&x, 2)
-	fmt.Println("topn", topn)
-	fmt.Println("margins", margins)
+	//     topn, margins := cls.PredictTopN(&x, 2)
+	//     fmt.Println("topn", topn)
+	//     fmt.Println("margins", margins)
 }
