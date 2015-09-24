@@ -56,7 +56,6 @@ type LearnerInterface interface {
 	Save(string)
 	GetParam() *[][]float64
 	GetParams() *[][][]float64
-	//     GetNonZeroParams() (*[][][]Param, *[]string)
 	GetNonZeroParams() *[][][]Param
 	GetDics() (*Dict, *Dict)
 	SetParam(*[][]float64)
@@ -602,7 +601,6 @@ func (this *Arow) Fit(x *[]map[string]float64, y *[]string) {
 			}
 		}
 	}
-	fmt.Println("FITFIN", len(this.Weight), len(this.Diag))
 }
 
 /* Cumulative Distribution Function for the Normal distribution */

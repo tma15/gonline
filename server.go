@@ -3,8 +3,10 @@ package gonline
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	//         "encoding/json"
 	"fmt"
+	"github.com/pquerna/ffjson/ffjson"
+	//         "gopkg.in/vmihailenco/msgpack.v2"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,8 +14,8 @@ import (
 )
 
 type Data struct {
-	X *[]map[string]float64 `json:"x"`
-	Y *[]string             `json:"y"`
+	X *[]map[string]float64 `json:"x" msgpack:"x"`
+	Y *[]string             `json:"y" msgpack:"y"`
 }
 
 func (this *Data) GetBatch(start, end int) *Data {
@@ -27,12 +29,12 @@ func (this *Data) GetBatch(start, end int) *Data {
 }
 
 type Model struct {
-	Algorightm string         `json:"a"`
-	Id2Feature []string       `json:"id2f"`
-	Feature2Id map[string]int `json:"f2id"`
-	Params     [][][]float64  `json:"params"`
-	Id2Label   []string       `json:"id2y"`
-	Label2Id   map[string]int `json:"y2id"`
+	Algorightm string         `json:"a" msgpack:"a"`
+	Id2Feature []string       `json:"id2f" msgpack:"id2f"`
+	Feature2Id map[string]int `json:"f2id" msgpack:"f2id"`
+	Params     [][][]float64  `json:"params msgpack:"params"`
+	Id2Label   []string       `json:"id2y" msgpack:"id2y"`
+	Label2Id   map[string]int `json:"y2id" msgpack:"y2id"`
 }
 
 type LearnerServer struct {
@@ -73,7 +75,9 @@ func (this *LearnerServer) fit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var data Data
-	err := json.Unmarshal([]byte(request), &data)
+	//         err := json.Unmarshal([]byte(request), &data)
+	err := ffjson.Unmarshal([]byte(request), &data)
+	//         err := msgpack.Unmarshal([]byte(request), &data)
 	if err != nil {
 		panic(err)
 	}
@@ -92,7 +96,9 @@ func (this *LearnerServer) fit(w http.ResponseWriter, r *http.Request) {
 		Label2Id:   labeldict.Elem2id,
 		Id2Label:   labeldict.Id2elem,
 	}
-	json, err := json.Marshal(model)
+	//         json, err := json.Marshal(model)
+	json, err := ffjson.Marshal(model)
+	//         json, err := msgpack.Marshal(model)
 	if err != nil {
 		panic(err)
 	}
@@ -111,7 +117,9 @@ func (this *LearnerServer) getAveragedModel(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	var model Model
-	err := json.Unmarshal([]byte(request), &model)
+	//         err := json.Unmarshal([]byte(request), &model)
+	err := ffjson.Unmarshal([]byte(request), &model)
+	//         err := msgpack.Unmarshal([]byte(request), &model)
 	if err != nil {
 		panic(err)
 	}
@@ -138,7 +146,9 @@ func NewClient() Client {
 }
 
 func (this *Client) SendData(host, port string, data *Data) *LearnerInterface {
-	jsonIn, err := json.Marshal(*data)
+	//         jsonIn, err := json.Marshal(*data)
+	jsonIn, err := ffjson.Marshal(*data)
+	//         jsonIn, err := msgpack.Marshal(*data)
 	if err != nil {
 		panic(err)
 	}
@@ -157,7 +167,9 @@ func (this *Client) SendData(host, port string, data *Data) *LearnerInterface {
 	}
 
 	var model Model
-	err = json.Unmarshal(body, &model)
+	//         err = json.Unmarshal(body, &model)
+	err = ffjson.Unmarshal(body, &model)
+	//         err = msgpack.Unmarshal(body, &model)
 	if err != nil {
 		panic(err)
 	}
@@ -197,7 +209,9 @@ func (this *Client) SendModel(host, port string, learner *LearnerInterface) {
 		Id2Label:   labeldict.Id2elem,
 	}
 
-	jsonIn, err := json.Marshal(model)
+	//         jsonIn, err := json.Marshal(model)
+	jsonIn, err := ffjson.Marshal(model)
+	//         jsonIn, err := msgpack.Marshal(model)
 	if err != nil {
 		panic(err)
 	}

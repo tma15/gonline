@@ -21,7 +21,7 @@ func BenchmarkDistributedFitting(b *testing.B) {
 		go s.Start()
 	}
 
-	x, y := LoadData("/Users/makino/go/src/github.com/tma15/gonline/gonline/news20.scale.big")
+	x, y := LoadData("./gonline/news20.scale")
 	data := Data{
 		X: x,
 		Y: y,
@@ -95,7 +95,7 @@ func BenchmarkDistributedFitting(b *testing.B) {
 
 	numCorr := 0
 	numTotal := 0
-	x, y = LoadData("/Users/makino/go/src/github.com/tma15/gonline/gonline/news20.t.scale")
+	x, y = LoadData("./gonline/news20.t.scale")
 	for i, x_i := range *x {
 		j := cls.Predict(&x_i)
 		if cls.LabelDict.Id2elem[j] == (*y)[i] {
