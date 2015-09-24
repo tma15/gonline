@@ -10,8 +10,6 @@ import (
 func BenchmarkDistributedFitting(b *testing.B) {
 	hosts := []string{"127.0.0.1"}
 	ports := []string{"8888"}
-	//     hosts := []string{"127.0.0.1", "127.0.0.1"}
-	//     ports := []string{"8888", "8889"}
 	//     hosts := []string{"127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1"}
 	//     ports := []string{"8888", "8889", "8890", "8891"}
 
