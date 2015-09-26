@@ -633,3 +633,149 @@ func calcConfidence(Diag *[]float64, features *[]Feature) float64 {
 	}
 	return V
 }
+
+/*
+	ADAM: A METHOD FOR STOCHASTIC OPTIMIZATION
+	http://arxiv.org/pdf/1412.6980.pdf
+*/
+type Adam struct {
+	*Learner
+	a  float64 /* step size */
+	b1 float64
+	b2 float64
+	e  float64
+	M  [][]float64
+	V  [][]float64
+	t  float64
+}
+
+func NewAdam() *Adam {
+	adam := Adam{
+		Learner: &Learner{},
+		a:       0.001,
+		b1:      0.9,
+		b2:      0.999,
+		e:       10e-8,
+		t:       1.0,
+		M:       make([][]float64, 0, 100),
+		V:       make([][]float64, 0, 100),
+	}
+	adam.FtDict = NewDict()
+	adam.LabelDict = NewDict()
+	return &adam
+}
+
+func (this *Adam) Name() string {
+	return "ADAM"
+}
+
+func (this *Adam) GetParams() *[][][]float64 {
+	params := [][][]float64{
+		this.Weight,
+		this.M,
+		this.V,
+	}
+	return &params
+}
+
+func (this *Adam) Fit(x *[]map[string]float64, y *[]string) {
+	this.t++
+	for i := 0; i < len(*x); i++ {
+		xi := (*x)[i]
+		yi := (*y)[i]
+		tid, features := this.conv(&yi, &xi)
+
+		/* expand label size */
+		if len(this.Weight) <= tid {
+			for k := len(this.Weight); k <= tid; k++ {
+				this.Weight = append(this.Weight, make([]float64, 0, 10000))
+			}
+		}
+		if len(this.M) <= tid {
+			for k := len(this.M); k <= tid; k++ {
+				this.M = append(this.M, make([]float64, 0, 10000))
+			}
+		}
+		if len(this.V) <= tid {
+			for k := len(this.V); k <= tid; k++ {
+				this.V = append(this.V, make([]float64, 0, 10000))
+			}
+		}
+
+		argmax := -1
+		max := math.Inf(-1)
+		margins := make([]float64, len(this.Weight), len(this.Weight))
+		for yid := 0; yid < len(this.Weight); yid++ {
+			w := &this.Weight[yid]
+			m := &this.M[yid]
+			v := &this.V[yid]
+			dot := 0.
+			for _, feature := range *features {
+				/* expand feature size */
+				if len(*w) <= feature.Id {
+					for k := len(*w); k <= feature.Id; k++ {
+						*w = append(*w, 0.)
+					}
+				}
+				if len(*m) <= feature.Id {
+					for k := len(*m); k <= feature.Id; k++ {
+						*m = append(*m, 0.)
+					}
+				}
+				if len(*v) <= feature.Id {
+					for k := len(*v); k <= feature.Id; k++ {
+						*v = append(*v, 0.)
+					}
+				}
+
+				if feature.Id >= len(*w) {
+					continue
+				}
+				dot += (*w)[feature.Id] * feature.Val
+			}
+			if max < dot {
+				max = dot
+				argmax = yid
+			}
+			margins[yid] = dot
+		}
+		if argmax == -1 {
+			fmt.Println(margins)
+			os.Exit(1)
+		}
+
+		/* loss function: f = max(0, 1 + y_argmax * w * x - y_true * w * x) */
+		var sign float64
+		if margins[tid] < 1.+margins[argmax] {
+			for yid := 0; yid < len(this.Weight); yid++ {
+				if yid == tid {
+					sign = 1.
+				} else {
+					sign = -1.
+				}
+				m := &this.M[yid]
+				v := &this.V[yid]
+				w := &this.Weight[yid]
+				for _, f := range *features {
+					/* df/dw = -1 * y * x */
+					g := -1. * sign * f.Val
+
+					/* Update biased first moment estimate */
+					(*m)[f.Id] = this.b1*(*m)[f.Id] + (1.-this.b1)*g
+
+					/* Update biased second raw moment estimate */
+					(*v)[f.Id] = this.b2*(*v)[f.Id] + (1.-this.b1)*g*g
+
+					/* Compute bias-corrected first moment estimate */
+					mh := (*m)[f.Id] / (1. - math.Pow(this.b1, this.t))
+
+					/* Compute bias-corrected second raw moment estimate */
+					vh := (*v)[f.Id] / (1. - math.Pow(this.b2, this.t))
+
+					/* Update parameter */
+					(*w)[f.Id] -= this.a * mh / (math.Sqrt(vh) + this.e)
+				}
+			}
+		}
+	}
+}

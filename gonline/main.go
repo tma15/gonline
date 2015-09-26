@@ -80,6 +80,8 @@ func train(args []string) {
 				learner = gonline.NewCW(eta)
 			case "arow":
 				learner = gonline.NewArow(gamma)
+			case "adam":
+				learner = gonline.NewAdam()
 			default:
 				panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
 			}
@@ -136,6 +138,8 @@ func train(args []string) {
 			learner = gonline.NewCW(eta)
 		case "arow":
 			learner = gonline.NewArow(gamma)
+		case "adam":
+			learner = gonline.NewAdam()
 		default:
 			panic(fmt.Sprintf("Invalid algorithm: %s", algorithm))
 		}
@@ -147,7 +151,6 @@ func train(args []string) {
 					gonline.ShuffleData(x_train, y_train)
 				}
 				learner.Fit(x_train, y_train)
-
 			}
 			if testfile != "" {
 				numCorr := 0
@@ -196,6 +199,7 @@ func test(args []string) {
 			if cls.LabelDict.Id2elem[j] == (*y)[i] {
 				numCorr += 1
 			}
+			//                         fmt.Println(cls.LabelDict.Id2elem[j], (*y)[i])
 			numTotal += 1
 		}
 	}

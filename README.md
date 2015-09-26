@@ -23,7 +23,8 @@ Supported Algorithms
 - Passive Aggressive I (pa1)
 - Passive Aggressive II (pa2)
 - Confidence Weighted (cw)
-- AROW (arow)
+- Adaptive Regularization of Weight Vectors (arow)
+- Adaptive Moment Estimation (adam)
 
 Characters in parentheses are option arguments for `-a` of `gonline train`.
 
@@ -114,6 +115,8 @@ For all algorithms which are supported by `gonline`, fitting 10 iterations on tr
 |Passive Aggressive II|0.782870|
 |Confidence Weighted (many-constraints update where k=∞)|0.852241|
 |AROW (the full version)|0.859755|
+|ADAM|0.775357|
+
 
 Evaluation is conducted using following command:
 ```
@@ -147,6 +150,7 @@ References
 - Koby Crammer, Alex Kulesza, and Mark Dredze. "Adaptive Regularization of Weight Vectors". NIPS. 2009.
 - Koby Crammer, Alex Kulesza, and Mark Dredze. "Adaptive Regularization of Weight Vectors". Machine Learning. 2013.
 - Ryan McDonald, Keith Hall, and Gideon Mann. "Distributed Training Strategies for the Structured Perceptron". NAACL. 2010.
+- Diederik P. Kingma and Jimmy Lei Ba. "ADAM: A METHOD FOR STOCHASTIC OPTIMIZATION". ICLR. 2015.
 
 License
 ==
