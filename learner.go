@@ -764,7 +764,7 @@ func (this *Adam) Fit(x *[]map[string]float64, y *[]string) {
 					(*m)[f.Id] = this.b1*(*m)[f.Id] + (1.-this.b1)*g
 
 					/* Update biased second raw moment estimate */
-					(*v)[f.Id] = this.b2*(*v)[f.Id] + (1.-this.b1)*g*g
+					(*v)[f.Id] = this.b2*(*v)[f.Id] + (1.-this.b2)*g*g
 
 					/* Compute bias-corrected first moment estimate */
 					mh := (*m)[f.Id] / (1. - math.Pow(this.b1, this.t))
