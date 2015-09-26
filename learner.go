@@ -680,6 +680,7 @@ func (this *Adam) GetParams() *[][][]float64 {
 
 func (this *Adam) Fit(x *[]map[string]float64, y *[]string) {
 	this.t++
+	this.a = this.a * math.Sqrt(1.-math.Pow(this.b2, this.t)) / (1. - math.Pow(this.b1, this.t))
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
