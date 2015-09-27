@@ -109,13 +109,13 @@ For all algorithms which are supported by `gonline`, fitting 10 iterations on tr
 
 |algorithm|accuracy|
 |---------|--------|
-|Perceptron|0.778613|
-|Passive Aggressive|0.772101|
-|Passive Aggressive I|0.792136|
-|Passive Aggressive II|0.782870|
-|Confidence Weighted (many-constraints update where k=∞)|0.852241|
-|AROW (the full version)|0.859755|
-|ADAM|0.775357|
+|Perceptron|0.798147|
+|Passive Aggressive|0.769597|
+|Passive Aggressive I|0.798147|
+|Passive Aggressive II|0.801402|
+|Confidence Weighted (many-constraints update where k=∞)|0.851741|
+|AROW (the full version)|0.860255|
+|ADAM|0.846481|
 
 
 Evaluation is conducted using following command:
