@@ -655,7 +655,7 @@ func NewAdam() *Adam {
 		a:       0.001,
 		b1:      0.9,
 		b2:      0.999,
-		e:       10e-8,
+		e:       1e-8,
 		t:       1.0,
 		M:       make([][]float64, 0, 100),
 		V:       make([][]float64, 0, 100),
@@ -679,8 +679,6 @@ func (this *Adam) GetParams() *[][][]float64 {
 }
 
 func (this *Adam) Fit(x *[]map[string]float64, y *[]string) {
-	this.t++
-	this.a = this.a * math.Sqrt(1.-math.Pow(this.b2, this.t)) / (1. - math.Pow(this.b1, this.t))
 	for i := 0; i < len(*x); i++ {
 		xi := (*x)[i]
 		yi := (*y)[i]
@@ -705,7 +703,8 @@ func (this *Adam) Fit(x *[]map[string]float64, y *[]string) {
 
 		argmax := -1
 		max := math.Inf(-1)
-		margins := make([]float64, len(this.Weight), len(this.Weight))
+		probs := make([]float64, len(this.Weight), len(this.Weight))
+		norm := 0.
 		for yid := 0; yid < len(this.Weight); yid++ {
 			w := &this.Weight[yid]
 			m := &this.M[yid]
@@ -738,44 +737,47 @@ func (this *Adam) Fit(x *[]map[string]float64, y *[]string) {
 				max = dot
 				argmax = yid
 			}
-			margins[yid] = dot
+			probs[yid] = math.Exp(dot)
+			norm += probs[yid]
 		}
 		if argmax == -1 {
-			fmt.Println(margins)
+			fmt.Println(probs)
 			os.Exit(1)
 		}
 
-		/* loss function: f = max(0, 1 + y_argmax * w * x - y_true * w * x) */
-		var sign float64
-		if margins[tid] < 1.+margins[argmax] {
-			for yid := 0; yid < len(this.Weight); yid++ {
-				if yid == tid {
-					sign = 1.
-				} else {
-					sign = -1.
-				}
-				m := &this.M[yid]
-				v := &this.V[yid]
-				w := &this.Weight[yid]
-				for _, f := range *features {
-					/* df/dw = -1 * y * x */
-					g := -1. * sign * f.Val
+		for i := 0; i < len(this.Weight); i++ {
+			probs[i] /= norm
+		}
 
-					/* Update biased first moment estimate */
-					(*m)[f.Id] = this.b1*(*m)[f.Id] + (1.-this.b1)*g
+		var loss float64
+		this.t++
+		a := this.a * math.Sqrt(1.-math.Pow(this.b2, this.t)) / (1. - math.Pow(this.b1, this.t))
+		for yid := 0; yid < len(this.Weight); yid++ {
+			if yid == tid {
+				loss = probs[yid] - 1.
+			} else {
+				loss = probs[yid] - 0.
+			}
+			m := &this.M[yid]
+			v := &this.V[yid]
+			w := &this.Weight[yid]
+			for _, f := range *features {
+				g := loss * f.Val
 
-					/* Update biased second raw moment estimate */
-					(*v)[f.Id] = this.b2*(*v)[f.Id] + (1.-this.b2)*g*g
+				/* Update biased first moment estimate */
+				(*m)[f.Id] = this.b1*(*m)[f.Id] + (1.-this.b1)*g
 
-					/* Compute bias-corrected first moment estimate */
-					mh := (*m)[f.Id] / (1. - math.Pow(this.b1, this.t))
+				/* Update biased second raw moment estimate */
+				(*v)[f.Id] = this.b2*(*v)[f.Id] + (1.-this.b2)*g*g
 
-					/* Compute bias-corrected second raw moment estimate */
-					vh := (*v)[f.Id] / (1. - math.Pow(this.b2, this.t))
+				/* Compute bias-corrected first moment estimate */
+				mh := (*m)[f.Id] / (1. - math.Pow(this.b1, this.t))
 
-					/* Update parameter */
-					(*w)[f.Id] -= this.a * mh / (math.Sqrt(vh) + this.e)
-				}
+				/* Compute bias-corrected second raw moment estimate */
+				vh := (*v)[f.Id] / (1. - math.Pow(this.b2, this.t))
+
+				/* Update parameter */
+				(*w)[f.Id] -= a * mh / (math.Sqrt(vh) + this.e)
 			}
 		}
 	}
