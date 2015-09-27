@@ -145,9 +145,9 @@ func train(args []string) {
 	default:
 		learner = ChooseLearner(algorithm, param)
 		fmt.Println("algoriths:", learner.Name())
-		for _, trainfile := range fs.Args() {
-			x_train, y_train = gonline.LoadData(trainfile)
-			for i := 0; i < loop; i++ {
+		for i := 0; i < loop; i++ {
+			for _, trainfile := range fs.Args() {
+				x_train, y_train = gonline.LoadData(trainfile)
 				if !without_shuffle {
 					gonline.ShuffleData(x_train, y_train)
 				}
