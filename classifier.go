@@ -102,7 +102,7 @@ func (this *Classifier) PredictTopN(x *map[string]float64, n int) ([]int, []floa
 	topn := make([]int, n, n)
 	topnmargins := make([]float64, n, n)
 	i := 0
-	for _, m := range margins {
+	for _, m := range margins[:n] {
 		topn[i] = m.Id
 		topnmargins[i] = m.Val
 		i++
@@ -114,6 +114,7 @@ func (this *Classifier) PredictTopN(x *map[string]float64, n int) ([]int, []floa
 func LoadClassifier(fname string) Classifier {
 	cls := NewClassifier()
 	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
+	defer model_f.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load model:%s", fname))
 	}
