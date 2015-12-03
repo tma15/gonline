@@ -99,6 +99,7 @@ func (this *Learner) Fit(*[]map[string]float64, *[]int) {
 
 func (this *Learner) Save(fname string) {
 	fp, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
+	defer fp.Close()
 	if err != nil {
 		panic(err)
 	}
