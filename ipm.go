@@ -8,7 +8,6 @@ import (
 
 func FitLearners(learners *[]LearnerInterface, x *[]map[string]float64, y *[]string) {
 	var wg sync.WaitGroup
-	//     var mu sync.Mutex
 	num_learner := len(*learners)
 	num_data := len(*x)
 	buffer := make(chan int, num_learner)
@@ -16,8 +15,6 @@ func FitLearners(learners *[]LearnerInterface, x *[]map[string]float64, y *[]str
 	for i := 0; i < num_learner; i++ {
 		wg.Add(1)
 		go func(ch chan int) {
-			//             mu.Lock()
-			//             defer mu.Unlock()
 			defer wg.Done()
 			for j := range ch {
 				start := j * sizechunk
@@ -31,10 +28,12 @@ func FitLearners(learners *[]LearnerInterface, x *[]map[string]float64, y *[]str
 			}
 		}(buffer)
 	}
-	for i := 0; i < num_learner; i++ {
-		buffer <- i
-	}
-	close(buffer)
+	go func() {
+		for i := 0; i < num_learner; i++ {
+			buffer <- i
+		}
+		close(buffer)
+	}()
 	wg.Wait()
 }
 
@@ -101,9 +100,10 @@ func AverageModels(learners []LearnerInterface) *LearnerInterface {
 	}
 	num_learner := len(learners)
 	buffer := make(chan int, num_learner)
-	results := make(chan *LearnerInterface, num_learner)
+	learners_avg := make([]LearnerInterface, num_learner/2, num_learner/2)
 
 	var wg sync.WaitGroup
+	mu := &sync.Mutex{}
 	for i := 0; i < num_learner; i++ {
 		wg.Add(1)
 		go func(ch chan int) {
@@ -113,20 +113,19 @@ func AverageModels(learners []LearnerInterface) *LearnerInterface {
 				l1 := learners[j]
 				l2 := learners[j+num_learner/2]
 				l_avg := average_two(&l1, &l2)
-				results <- l_avg
+				mu.Lock()
+				learners_avg[j] = *l_avg
+				mu.Unlock()
 			}
 		}(buffer)
 	}
-	for i := 0; i < num_learner/2; i++ {
-		buffer <- i
-	}
-	close(buffer)
+	go func() {
+		for i := 0; i < num_learner/2; i++ {
+			buffer <- i
+		}
+		close(buffer)
+	}()
 	wg.Wait()
-	close(results)
-	learners_avg := make([]LearnerInterface, 0, num_learner/2)
-	for l_avg := range results {
-		learners_avg = append(learners_avg, *l_avg)
-	}
 
 	if len(learners_avg) == 1 {
 		return &learners_avg[0]
@@ -150,9 +149,11 @@ func BroadCastModel(avg_learner *LearnerInterface, learners *[]LearnerInterface)
 			}
 		}(buffer)
 	}
-	for i := 0; i < num_learner; i++ {
-		buffer <- i
-	}
-	close(buffer)
+	go func() {
+		for i := 0; i < num_learner; i++ {
+			buffer <- i
+		}
+		close(buffer)
+	}()
 	wg.Wait()
 }
