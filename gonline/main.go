@@ -157,7 +157,8 @@ func train(args []string) {
 				EvalLearner(i+1, &learner, x_test, y_test)
 			}
 		}
-		learner.Save(model)
+		//                 learner.Save(model)
+		learner.SaveBinary(model)
 	}
 }
 
@@ -170,7 +171,8 @@ func test(args []string) {
 	fs.BoolVar(&verbose, "v", false, "verbose mode")
 	fs.Parse(args)
 
-	cls := gonline.LoadClassifier(model)
+	//         cls := gonline.LoadClassifier(model)
+	cls := gonline.LoadClassifierBinary(model)
 
 	numCorr := 0
 	numTotal := 0

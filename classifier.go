@@ -2,6 +2,7 @@ package gonline
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
@@ -152,4 +153,90 @@ func LoadClassifier(fname string) Classifier {
 		}
 	}
 	return cls
+}
+
+func LoadClassifierBinary(fname string) Classifier {
+	cls := NewClassifier()
+	model_f, err := os.OpenFile(fname, os.O_RDONLY, 0644)
+	defer model_f.Close()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load model:%s", fname))
+	}
+	reader := bufio.NewReaderSize(model_f, 4096*32)
+
+	var byte_ byte
+
+	var labelsize uint64
+	binary.Read(reader, binary.LittleEndian, &labelsize)
+
+	var uint64_size int = 8
+	for i := 0; i < int(labelsize); i++ {
+		// read character size
+		byte_slice := make([]byte, 0)
+		for i := 0; i < uint64_size; i++ {
+			var byte_ byte
+			byte_, err = reader.ReadByte()
+			if err != nil {
+				panic(err)
+			}
+			byte_slice = append(byte_slice, byte_)
+		}
+		var num_char_byte uint64 = binary.LittleEndian.Uint64(byte_slice)
+
+		// read characters
+		var i uint64
+		var byte_str []byte = make([]byte, 0)
+		for i = 0; i < num_char_byte; i++ {
+			byte_, err = reader.ReadByte()
+			if err != nil {
+				panic(err)
+			}
+			byte_str = append(byte_str, byte_)
+		}
+		label := string(byte_str)
+		cls.LabelDict.AddElem(label)
+	}
+
+	cls.Weight = make([][]float64, labelsize, labelsize)
+	for labelid := 0; labelid < int(labelsize); labelid++ {
+		var ftsize uint64
+		binary.Read(reader, binary.LittleEndian, &ftsize)
+		cls.Weight[labelid] = make([]float64, ftsize, ftsize)
+		for i := 0; i < int(ftsize); i++ {
+			// read character size
+			byte_slice := make([]byte, 0)
+			for i := 0; i < uint64_size; i++ {
+				var byte_ byte
+				byte_, err = reader.ReadByte()
+				if err != nil {
+					panic(err)
+				}
+				byte_slice = append(byte_slice, byte_)
+			}
+			var num_char_byte uint64 = binary.LittleEndian.Uint64(byte_slice)
+
+			// read characters
+			var i uint64
+			var byte_str []byte = make([]byte, 0)
+			for i = 0; i < num_char_byte; i++ {
+				byte_, err = reader.ReadByte()
+				if err != nil {
+					panic(err)
+				}
+				byte_str = append(byte_str, byte_)
+			}
+			ft := string(byte_str)
+
+			if !cls.FtDict.HasElem(ft) {
+				cls.FtDict.AddElem(ft)
+			}
+			ftid := cls.FtDict.Elem2id[ft]
+
+			var w float64
+			binary.Read(reader, binary.LittleEndian, &w)
+			cls.Weight[labelid][ftid] = w
+		}
+	}
+	return cls
+
 }
