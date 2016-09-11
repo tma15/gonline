@@ -2,6 +2,7 @@ package gonline
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
@@ -54,6 +55,7 @@ type LearnerInterface interface {
 	conv(*string, *map[string]float64) (int, *[]Feature)
 	Fit(*[]map[string]float64, *[]string)
 	Save(string)
+	SaveBinary(string)
 	GetParam() *[][]float64
 	GetParams() *[][][]float64
 	GetNonZeroParams() *[][][]Param
@@ -117,6 +119,70 @@ func (this *Learner) Save(fname string) {
 		for ftid := 0; ftid < len(w); ftid++ {
 			ft := this.FtDict.Id2elem[ftid]
 			writer.WriteString(fmt.Sprintf("%s %f\n", ft, w[ftid]))
+		}
+	}
+	writer.Flush()
+}
+
+func (this *Learner) SaveBinary(fname string) {
+	fp, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0777)
+	defer fp.Close()
+	if err != nil {
+		panic(err)
+	}
+	writer := bufio.NewWriterSize(fp, 4096*32)
+
+	labelsize := len(this.LabelDict.Id2elem)
+	err = binary.Write(writer, binary.LittleEndian, uint64(labelsize))
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < labelsize; i++ {
+		label := this.LabelDict.Id2elem[i]
+
+		// write character size
+		err = binary.Write(writer, binary.LittleEndian, uint64(len(label)))
+		if err != nil {
+			panic(err)
+		}
+
+		// write bytes of characters
+		for _, ch := range []byte(label) {
+			err = writer.WriteByte(byte(ch))
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	for labelid := 0; labelid < labelsize; labelid++ {
+		w := this.Weight[labelid]
+		featuresize := len(w)
+		err = binary.Write(writer, binary.LittleEndian, uint64(featuresize))
+		if err != nil {
+			panic(err)
+		}
+		for ftid := 0; ftid < len(w); ftid++ {
+			ft := this.FtDict.Id2elem[ftid]
+			// write character size
+			err = binary.Write(writer, binary.LittleEndian, uint64(len(ft)))
+			if err != nil {
+				panic(err)
+			}
+
+			// write characters
+			for _, ch := range []byte(ft) {
+				err = writer.WriteByte(byte(ch))
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			err = binary.Write(writer, binary.LittleEndian, w[ftid])
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 	writer.Flush()
