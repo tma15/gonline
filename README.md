@@ -105,7 +105,7 @@ test accuracy: 0.859755 (3433/3993)
 
 Benchmark
 ==
-For all algorithms which are supported by `gonline`, fitting 10 iterations on training data `news.scale`, then predicting test data `news.t.scale`. Training data don't be shuffled. Default values are used as hyper parameters.
+For all algorithms which are supported by `gonline`, fitting 10 iterations on training data `news.scale`, then predicting test data `news.t.scale`. Training data are not shuffled. Default values are used as hyper parameters.
 
 |algorithm|accuracy|
 |---------|--------|
